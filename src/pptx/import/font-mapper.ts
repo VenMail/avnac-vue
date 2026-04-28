@@ -1,0 +1,35 @@
+const FONT_MAP: Record<string, string> = {
+  Calibri: 'Inter',
+  'Calibri Light': 'Inter',
+  Arial: 'Inter',
+  'Arial Narrow': 'Inter',
+  'Arial Black': 'Inter',
+  Helvetica: 'Inter',
+  'Helvetica Neue': 'Inter',
+  Verdana: 'Inter',
+  Tahoma: 'Inter',
+  'Times New Roman': 'Lora',
+  Times: 'Lora',
+  Georgia: 'Lora',
+  Garamond: 'Lora',
+  'Book Antiqua': 'Lora',
+  Palatino: 'Lora',
+  'Palatino Linotype': 'Lora',
+  'Courier New': 'Source Code Pro',
+  Courier: 'Source Code Pro',
+  'Lucida Console': 'Source Code Pro',
+  'Consolas': 'Source Code Pro',
+  'Comic Sans MS': 'Caveat',
+  Impact: 'Oswald',
+  'Franklin Gothic Medium': 'Oswald',
+  'Franklin Gothic Book': 'Oswald',
+  Trebuchet: 'Nunito',
+  'Trebuchet MS': 'Nunito',
+  'Century Gothic': 'Nunito',
+  'Segoe UI': 'Inter',
+  'Segoe Print': 'Caveat',
+}
+
+export function mapPptxFont(pptxFont: string): string {
+  return FONT_MAP[pptxFont] ?? FONT_MAP[pptxFont.replace(/ .*/, '')] ?? 'Inter'
+}

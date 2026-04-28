@@ -51,6 +51,7 @@ import { captureAvnacDocument, type AvnacDocumentV1 } from '#/lib/avnac-document
 import { linearGradientForBox } from '#/lib/fabric-linear-gradient'
 import { getAvnacLocked } from '#/lib/avnac-object-lock'
 import { removeActiveObjectFromCanvas } from '#/lib/fabric-remove-selection'
+import { getSceneHandleSizesForArtboard, applySceneHandleSizesToCanvas } from '#/lib/fabric-selection-chrome'
 
 // ────────────────────────────────────────────
 // Props / emits
@@ -138,12 +139,23 @@ const zoomContainerStyle = computed(() => ({
 function applyFabricZoom() {
   const canvas = fabricCanvas.value
   if (!canvas) return
+  const mod = fabricMod.value
   const scale = zoomPercent.value / 100
   const w = Math.round(artboardWRef.value * scale)
   const h = Math.round(artboardHRef.value * scale)
   canvas.setDimensions({ width: w, height: h })
   canvas.setViewportTransform([scale, 0, 0, scale, 0, 0])
-  canvas.requestRenderAll()
+  if (mod) {
+    // Re-compute handle sizes so corners/rotate handles stay ~11px on screen
+    // regardless of zoom level (handles are in artboard/scene coordinates).
+    const sizes = getSceneHandleSizesForArtboard(
+      Math.min(artboardWRef.value, artboardHRef.value),
+      zoomPercent.value,
+    )
+    applySceneHandleSizesToCanvas(canvas, mod, sizes)
+  } else {
+    canvas.requestRenderAll()
+  }
 }
 
 watch(zoomPercent, applyFabricZoom)
@@ -179,6 +191,20 @@ watch(() => canvasStore.ready, async (ready) => {
   canvas.on('object:removed', emitChange)
   // Re-apply viewport transform after text editing exits to guard against any state drift
   canvas.on('text:editing:exited', () => applyFabricZoom())
+
+  // Double-click on a group: enter editing on any textbox subTarget.
+  // Fabric populates canvas.targets with sub-objects when subTargetCheck: true.
+  // enterEditing() works on a textbox inside a group (Fabric 6 has no group check).
+  canvas.on('mouse:dblclick', (opt: any) => {
+    const target = opt.target
+    if (!target || target.type !== 'group') return
+    const subs: any[] = (canvas as any).targets ?? []
+    const tb = subs.find((s: any) => s.type === 'textbox' || s.type === 'i-text')
+    if (!tb || !tb.enterEditing) return
+    canvas.setActiveObject(tb)
+    tb.enterEditing()
+    canvas.requestRenderAll()
+  })
 
   await nextTick()
   fitToViewport()

@@ -2,6 +2,7 @@ import { computed } from 'vue'
 import type { ShallowRef } from 'vue'
 import type { Canvas, FabricObject } from 'fabric'
 import { getAvnacLayerName, setAvnacLayerName, ensureAvnacLayerId } from '#/lib/ensure-avnac-layer-id'
+import { useCanvasStore } from '#/stores/canvas'
 
 export interface LayerRow {
   id: string
@@ -19,6 +20,7 @@ function fabricObjectLabel(obj: FabricObject): string {
 export function useLayerPanel(
   fabricCanvas: ShallowRef<Canvas | null>,
 ) {
+  const canvasStore = useCanvasStore()
   const layers = computed<LayerRow[]>(() => {
     const canvas = fabricCanvas.value
     if (!canvas) return []
@@ -83,6 +85,7 @@ export function useLayerPanel(
     // Remove all, then re-add in order
     const toAdd = bottomFirst.map((id) => byId.get(id)).filter(Boolean) as FabricObject[]
     canvas.discardActiveObject()
+    canvasStore.clearSelection()   // sync store so toolbar hides after reorder
     toAdd.forEach((o) => canvas.remove(o))
     toAdd.forEach((o, i) => canvas.insertAt(i, o))
     canvas.requestRenderAll()

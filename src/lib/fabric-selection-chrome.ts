@@ -360,11 +360,15 @@ export function installFabricSelectionChrome(fabric: typeof import('fabric')) {
   if (fabric.IText?.ownDefaults) {
     Object.assign(fabric.IText.ownDefaults, {
       editingBorderColor: 'rgba(139, 61, 255, 0.28)',
+      // padding: 0 removes the default 5px inner gap that creates a visible
+      // space between the last character and the text cursor.
+      padding: 0,
     })
   }
   if (fabric.Textbox?.ownDefaults) {
     Object.assign(fabric.Textbox.ownDefaults, {
       editingBorderColor: 'rgba(139, 61, 255, 0.28)',
+      padding: 0,
     })
   }
 }

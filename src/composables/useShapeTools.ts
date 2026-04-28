@@ -7,7 +7,7 @@ import { regularPolygonPoints, starPolygonPoints } from '#/lib/avnac-shape-geome
 import { createArrowGroup } from '#/lib/avnac-stroke-arrow'
 import { installArrowEndpointControls } from '#/lib/fabric-line-arrow-controls'
 import { enableTextboxAutoWidth, fitTextboxWidthToContent } from '#/lib/avnac-textbox-autowidth'
-import { loadGoogleFontFamily } from '#/lib/load-google-font'
+import { ensureGoogleFontFamilyReady } from '#/lib/load-google-font'
 import { setAvnacStroke } from '#/lib/avnac-fill-paint'
 import { useCanvasStore } from '#/stores/canvas'
 
@@ -29,7 +29,7 @@ export function useShapeTools(
     }
   }
 
-  function addText() {
+  async function addText() {
     const canvas = fabricCanvas.value
     const mod = fabricMod.value
     if (!canvas || !mod) return
@@ -37,7 +37,9 @@ export function useShapeTools(
     const w = artboardWRef.value
     const h = artboardHRef.value
     const paint = canvasStore.selectedPaint
-    loadGoogleFontFamily('Inter')
+    // Await font ready so text renders with correct metrics from the first paint
+    // (prevents FOUT and cursor-position misalignment on initial render).
+    await ensureGoogleFontFamilyReady('Inter')
     const t = new mod.Textbox('Your text', {
       left: w / 2,
       top: h / 2,

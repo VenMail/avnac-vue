@@ -1,6 +1,7 @@
 import type { ShallowRef } from 'vue'
 import type { Canvas, IText } from 'fabric'
-import { getAvnacShapeMeta, isAvnacStrokeLineLike } from '#/lib/avnac-shape-meta'
+import { getAvnacShapeMeta, getAvnacGroupKind, isAvnacStrokeLineLike } from '#/lib/avnac-shape-meta'
+import type { AvnacAnimationEntry } from '#/lib/avnac-animation'
 import {
   bgValueFromFabricFill,
   bgValueFromFabricStroke,
@@ -171,6 +172,30 @@ export function useToolbarSync(
     }
   }
 
+  function syncAnimationToolbar() {
+    const canvas = fabricCanvas.value
+    if (!canvas) { canvasStore.animationToolbarModel = null; return }
+    const active = canvas.getActiveObject()
+    if (!active) { canvasStore.animationToolbarModel = null; return }
+    const entries: AvnacAnimationEntry[] = (active as any).avnacAnimations ?? []
+    canvasStore.animationToolbarModel = { entries: [...entries] }
+  }
+
+  function syncChartKind() {
+    const canvas = fabricCanvas.value
+    if (!canvas) return
+    const obj = canvas.getActiveObject()
+    if (!obj) return
+    const kind = getAvnacGroupKind(obj)
+    if (kind === 'chart' && canvasStore.shapeToolbarModel) {
+      // Attach chart kind to the existing model so toolbar shows "Edit data"
+      ;(canvasStore.shapeToolbarModel as any).meta = {
+        ...((canvasStore.shapeToolbarModel as any).meta ?? {}),
+        kind: 'chart',
+      }
+    }
+  }
+
   function syncAll() {
     const canvas = fabricCanvas.value
     if (!canvas) {
@@ -183,10 +208,12 @@ export function useToolbarSync(
     canvasStore.tickSelection()
     syncTextToolbar()
     syncShapeToolbar()
+    syncChartKind()
     syncImageCornerToolbar()
     syncSelectionBlur()
     syncSelectionOpacity()
     syncSelectionShadow()
+    syncAnimationToolbar()
   }
 
   function attachSelectionListeners(canvas: Canvas) {

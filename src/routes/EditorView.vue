@@ -21,6 +21,14 @@
           @shadow-change="onShadowChange"
           @shadow-toggle="onShadowToggle"
           @delete="onDeleteSelected"
+          @open-animation-panel="animationPanelOpen = true"
+          @edit-chart-data="onEditChartData"
+        />
+        <EditorAnimationPanel
+          v-if="animationPanelOpen"
+          :canvas="getCanvas()"
+          style="position: absolute; right: 12px; top: 60px; z-index: 50;"
+          @close="animationPanelOpen = false"
         />
       </template>
 
@@ -115,11 +123,12 @@
         </div>
       </template>
     </CanvasEditor>
+    <ChartDataDialog />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import CanvasEditor from '#/components/canvas/CanvasEditor.vue'
 import VectorBoardWorkspace from '#/components/panels/VectorBoardWorkspace.vue'
 import CanvasElementToolbar from '#/components/toolbar/CanvasElementToolbar.vue'
@@ -132,7 +141,9 @@ import EditorImagesPanel from '#/components/panels/EditorImagesPanel.vue'
 import EditorUploadsPanel from '#/components/panels/EditorUploadsPanel.vue'
 import EditorAiPanel from '#/components/panels/EditorAiPanel.vue'
 import EditorAppsPanel from '#/components/panels/EditorAppsPanel.vue'
+import EditorAnimationPanel from '#/components/panels/EditorAnimationPanel.vue'
 import ChartDataPanel from '#/components/charts/ChartDataPanel.vue'
+import ChartDataDialog from '#/components/charts/ChartDataDialog.vue'
 import InfographicPanel from '#/components/infographics/InfographicPanel.vue'
 import DiagramPanel from '#/components/diagrams/DiagramPanel.vue'
 import type { EditorLayerRow } from '#/components/panels/EditorLayersPanel.vue'
@@ -142,6 +153,7 @@ import type { BgValue } from '#/lib/bg-value'
 import type { FabricShadowUi } from '#/lib/avnac-fabric-shadow'
 import type { TextFormatToolbarValues } from '#/stores/canvas'
 import { useCanvasStore } from '#/stores/canvas'
+import { useChartsStore } from '#/stores/charts'
 import { exportDocumentsToPptx } from '#/pptx/export'
 import { importPptxFromInput } from '#/pptx/import'
 import type { AvnacInfographicData } from '#/lib/avnac-infographic'
@@ -153,7 +165,9 @@ const editorRef = ref<InstanceType<typeof CanvasEditor> | null>(null)
 const initialDocument = ref<AvnacDocumentV1 | undefined>(undefined)
 const activePanel = ref<EditorSidebarPanelId | null>(null)
 const canvasStore = useCanvasStore()
+const chartsStore = useChartsStore()
 const vectorBoardDoc = ref<VectorBoardDocument>(emptyVectorBoardDocument())
+const animationPanelOpen = ref(false)
 
 function onVectorBoardChange(doc: VectorBoardDocument) {
   vectorBoardDoc.value = doc
@@ -383,6 +397,41 @@ function onShadowToggle() {
   })
 }
 
+// Re-render active chart image when user saves edits in the chart data dialog.
+watch(() => chartsStore.renderRev, async () => {
+  const canvas = getCanvas()
+  if (!canvas) return
+  const data = chartsStore.editingChartData
+  if (!data) return
+  const active = canvas.getActiveObject() as any
+  if (!active?.avnacChart) return
+  active.avnacChart = data
+  const w = (active.width ?? 400) * (active.scaleX ?? 1)
+  const h = (active.height ?? 300) * (active.scaleY ?? 1)
+  const { renderChartToDataUrl } = await import('#/composables/useChartRenderer')
+  const url = await renderChartToDataUrl(data, Math.max(200, w), Math.max(150, h))
+  await new Promise<void>((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      ;(active as any).setSrc?.(url, () => {
+        active.set('dirty', true)
+        canvas.requestRenderAll()
+        resolve()
+      })
+    }
+    img.onerror = reject
+    img.src = url
+  }).catch((err) => console.warn('[avnac] chart re-render failed', err))
+})
+
+function onEditChartData() {
+  const canvas = getCanvas()
+  if (!canvas) return
+  const active = canvas.getActiveObject() as any
+  if (!active?.avnacChart) return
+  chartsStore.openChartEditor(active.avnacLayerId ?? 'active', active.avnacChart)
+}
+
 function onDeleteSelected() {
   const canvas = getCanvas()
   if (!canvas) return
@@ -447,6 +496,14 @@ async function onImportPptx() {
   }
 }
 
+// Common helper: pull spec stroke/strokeWidth so Polygon/Rect borders render correctly.
+function strokeProps(s: any) {
+  return {
+    stroke: s.stroke,
+    strokeWidth: s.strokeWidth ?? (s.stroke ? 1 : 0),
+  }
+}
+
 // Insert infographic — delegate to shapeTools on CanvasEditor
 function onInsertInfographic(data: AvnacInfographicData) {
   const canvas = getCanvas()
@@ -457,13 +514,13 @@ function onInsertInfographic(data: AvnacInfographicData) {
       const children: any[] = []
       for (const s of specs) {
         if (s.type === 'Rect') {
-          children.push(new (mod as any).Rect({ left: s.left, top: s.top, width: s.width, height: s.height, fill: s.fill ?? '#ccc', rx: s.rx ?? 0, ry: s.ry ?? 0, strokeWidth: 0, selectable: false, evented: false }))
+          children.push(new (mod as any).Rect({ left: s.left, top: s.top, width: s.width, height: s.height, fill: s.fill ?? '#ccc', rx: s.rx ?? 0, ry: s.ry ?? 0, ...strokeProps(s), selectable: false, evented: false }))
         } else if (s.type === 'Polygon' && s.points) {
-          children.push(new (mod as any).Polygon(s.points, { fill: s.fill ?? '#ccc', strokeWidth: 0, selectable: false, evented: false }))
+          children.push(new (mod as any).Polygon(s.points, { fill: s.fill ?? '#ccc', ...strokeProps(s), selectable: false, evented: false }))
         } else if (s.type === 'Ellipse') {
-          children.push(new (mod as any).Ellipse({ left: s.left, top: s.top, rx: s.rx ?? s.width / 2, ry: s.ry ?? s.height / 2, fill: s.fill ?? '#ccc', strokeWidth: 0, selectable: false, evented: false }))
+          children.push(new (mod as any).Ellipse({ left: s.left, top: s.top, rx: s.rx ?? s.width / 2, ry: s.ry ?? s.height / 2, fill: s.fill ?? '#ccc', ...strokeProps(s), selectable: false, evented: false }))
         } else if (s.type === 'Circle') {
-          children.push(new (mod as any).Circle({ left: s.left, top: s.top, radius: s.radius ?? 10, fill: s.fill ?? '#ccc', strokeWidth: 0, selectable: false, evented: false }))
+          children.push(new (mod as any).Circle({ left: s.left, top: s.top, radius: s.radius ?? 10, fill: s.fill ?? '#ccc', ...strokeProps(s), selectable: false, evented: false }))
         } else if (s.type === 'Textbox' && s.text) {
           children.push(new (mod as any).Textbox(s.text, { left: s.left, top: s.top, width: s.width, fontSize: s.fontSize ?? 12, fontWeight: s.fontWeight ?? 'normal', textAlign: s.textAlign ?? 'left', fill: s.fill ?? '#262626', selectable: false, evented: false }))
         }
@@ -471,6 +528,7 @@ function onInsertInfographic(data: AvnacInfographicData) {
       const group = new (mod as any).Group(children, {
         left: 200, top: 200,
         avnacShape: { kind: 'infographic', template: data.template },
+        avnacGroupKind: 'infographic',
         avnacInfographic: data,
       })
       canvas.add(group)
@@ -503,9 +561,9 @@ function onInsertDiagram(data: AvnacDiagramData) {
       const children: any[] = []
       for (const s of specs) {
         if (s.type === 'Rect') {
-          children.push(new (mod as any).Rect({ left: s.left, top: s.top, width: s.width, height: s.height, fill: s.fill ?? '#4472c4', rx: s.rx ?? 0, ry: s.ry ?? 0, strokeWidth: 0, selectable: false, evented: false }))
+          children.push(new (mod as any).Rect({ left: s.left, top: s.top, width: s.width, height: s.height, fill: s.fill ?? '#4472c4', rx: s.rx ?? 0, ry: s.ry ?? 0, ...strokeProps(s), selectable: false, evented: false }))
         } else if (s.type === 'Polygon' && s.points) {
-          children.push(new (mod as any).Polygon(s.points, { fill: s.fill ?? '#ccc', strokeWidth: 0, selectable: false, evented: false }))
+          children.push(new (mod as any).Polygon(s.points, { fill: s.fill ?? '#ccc', ...strokeProps(s), selectable: false, evented: false }))
         } else if (s.type === 'Textbox' && s.text) {
           children.push(new (mod as any).Textbox(s.text, { left: s.left, top: s.top, width: s.width, fontSize: s.fontSize ?? 12, fontWeight: s.fontWeight ?? 'bold', textAlign: s.textAlign ?? 'center', fill: s.fill ?? '#ffffff', selectable: false, evented: false }))
         } else if (s.type === 'Line' && s.x1 !== undefined) {
@@ -515,6 +573,7 @@ function onInsertDiagram(data: AvnacDiagramData) {
       const group = new (mod as any).Group(children, {
         left: 150, top: 150,
         avnacShape: { kind: 'diagram' },
+        avnacGroupKind: 'diagram',
         avnacDiagram: data,
       })
       canvas.add(group)

@@ -110,10 +110,13 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import type { Canvas } from 'fabric'
 import { useCanvasStore } from '#/stores/canvas'
 import { effectCatalog, EFFECTS_BY_KIND, defaultAnimationEntry } from '#/lib/avnac-animation'
 import type { AnimationKind, AnimationTrigger, AnimationEasing, AvnacAnimationEntry } from '#/lib/avnac-animation'
+import { previewObjectAnimations } from '#/lib/avnac-animation-runtime'
 
+const props = defineProps<{ canvas: Canvas | null }>()
 const emit = defineEmits<{ close: [] }>()
 
 const canvasStore = useCanvasStore()
@@ -139,9 +142,21 @@ function effectLabel(key: string): string {
 }
 
 function writeBack(updated: AvnacAnimationEntry[]) {
-  if (canvasStore.animationToolbarModel) {
-    canvasStore.animationToolbarModel.entries = updated
+  // Persist to fabric object first; store is a derived view.
+  const canvas = props.canvas
+  const active = canvas?.getActiveObject()
+  if (active) {
+    ;(active as any).avnacAnimations = updated
+    ;(active as any).set?.('dirty', true)
+    canvas?.fire('object:modified', { target: active } as any)
   }
+  canvasStore.animationToolbarModel = { entries: updated }
+}
+
+function onPreview() {
+  const canvas = props.canvas
+  const active = canvas?.getActiveObject()
+  if (canvas && active) previewObjectAnimations(canvas, active as any)
 }
 
 function addEntry(kind: AnimationKind) {
@@ -160,10 +175,6 @@ function updateEntry(id: string, field: keyof AvnacAnimationEntry, value: unknow
   writeBack(entries.value.map((e) => (e.id === id ? { ...e, [field]: value } : e)))
 }
 
-function onPreview() {
-  // Preview is wired in the runtime module when available — emit event for parent to handle
-  emit('close')
-}
 </script>
 
 <style scoped>

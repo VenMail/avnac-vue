@@ -61,6 +61,13 @@ export function useToolbarSync(
       canvasStore.textToolbarValues = null
       return
     }
+    // Suppress text toolbar when the IText is a child of a diagram/infographic group
+    // (drilled-in editing of placeholder labels should not surface global text controls).
+    const groupKind = getAvnacGroupKind(obj)
+    if (groupKind === 'diagram' || groupKind === 'infographic') {
+      canvasStore.textToolbarValues = null
+      return
+    }
     const defaultFontSize = Math.round(artboardWRef.value * 0.04)
     canvasStore.textToolbarValues = readTextFormat(obj as IText, defaultFontSize)
   }

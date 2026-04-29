@@ -294,11 +294,15 @@ export function renderChevron(data: AvnacInfographicData, groupId?: string): Inf
       groupId, 'shape', i,
     ))
 
-    const tbW = Math.max(30, itemW - 8)
+    // Text starts AFTER the left notch and ends BEFORE the right tip notch
+    // (or right edge for the last chevron, which has no right notch).
+    const tbLeft = x + notch + 4
+    const tbRight = isLast ? x + itemW - 4 : x + itemW - notch - 4
+    const tbW = Math.max(20, tbRight - tbLeft)
     if (data.options.showLabels) {
       specs.push(tag(
         {
-          type: 'Textbox', left: x + 4, top: height / 2 - 12, width: tbW, height: 24,
+          type: 'Textbox', left: tbLeft, top: height / 2 - 12, width: tbW, height: 24,
           text: items[i].label,
           fontSize: items[i].fontSize ?? 11, fontWeight: items[i].fontWeight ?? 'bold',
           textAlign: items[i].align ?? 'center', fill: '#ffffff',

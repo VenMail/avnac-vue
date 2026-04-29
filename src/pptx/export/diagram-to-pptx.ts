@@ -35,15 +35,16 @@ export function addDiagramToPptx(
   artboardH: number,
   slideW: number,
   slideH: number,
-): void {
+): number {
   const diagram = obj.avnacDiagram
-  if (!diagram) return
+  if (!diagram) return 0
 
   const scaleX = obj.scaleX ?? 1
   const scaleY = obj.scaleY ?? 1
   const groupLeft = obj.left
   const groupTop = obj.top
   const rotate = Math.round(obj.angle ?? 0)
+  let count = 0
 
   function nodeToSlideCoords(node: DiagramNode) {
     const absLeft = groupLeft + node.x * scaleX
@@ -90,6 +91,7 @@ export function addDiagramToPptx(
         endArrowType: edge.arrowEnd ? 'arrow' : 'none',
       },
     })
+    count++
 
     // Edge label
     if (edge.label) {
@@ -97,6 +99,7 @@ export function addDiagramToPptx(
         x: (x1 + x2) / 2 - 0.5, y: (y1 + y2) / 2 - 0.1,
         w: 1, h: 0.2, fontSize: 8, color: '666666', align: 'center',
       })
+      count++
     }
   }
 
@@ -112,11 +115,14 @@ export function addDiagramToPptx(
       fill: { color },
       rectRadius,
     })
+    count++
 
     // Node label
     slide.addText(node.label, {
       x, y: y + h / 2 - 0.12, w, h: 0.25, rotate,
       fontSize: 10, color: 'ffffff', bold: true, align: 'center', valign: 'middle',
     })
+    count++
   }
+  return count
 }

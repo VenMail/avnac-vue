@@ -53,12 +53,11 @@ export function addDocumentToPresentation(
       let added = false
       // Specialized object kinds take priority
       if (kind === 'infographic') {
-        addInfographicToPptx(slide, obj as any, aw, ah, SLIDE_W_IN, SLIDE_H_IN)
-        // Infographic adds multiple shapes — skip per-object animation for now.
-        added = false
+        const n = addInfographicToPptx(slide, obj as any, aw, ah, SLIDE_W_IN, SLIDE_H_IN)
+        shapeId += n  // advance past the N shapes infographic added
       } else if (kind === 'diagram') {
-        addDiagramToPptx(slide, obj as any, aw, ah, SLIDE_W_IN, SLIDE_H_IN)
-        added = false
+        const n = addDiagramToPptx(slide, obj as any, aw, ah, SLIDE_W_IN, SLIDE_H_IN)
+        shapeId += n  // advance past the N shapes diagram added
       } else if ((type === 'image' || type === 'fabricimage') && obj.avnacChart) {
         addChartToPptx(slide, obj as any, aw, ah, SLIDE_W_IN, SLIDE_H_IN)
         added = true

@@ -12,30 +12,57 @@ let _id = 0
 function nextId() { return ++_id }
 function resetIds() { _id = 0 }
 
+function effectToFilter(effect: string): string {
+  switch (effect) {
+    case 'fadeIn': case 'fadeOut':       return 'fade'
+    case 'wipeIn': case 'wipeOut':       return 'wipe(left)'
+    case 'flyInLeft': case 'flyOutLeft': return 'wipe(right)'
+    case 'flyInRight': case 'flyOutRight': return 'wipe(left)'
+    case 'flyInTop': case 'flyOutTop':   return 'wipe(down)'
+    case 'flyInBottom':                  return 'wipe(up)'
+    case 'zoomIn': case 'zoomOut':
+    case 'growIn': case 'bounceIn':
+    case 'grow': case 'shrink': case 'shrinkOut': return 'zoom'
+    default: return 'fade'
+  }
+}
+
 function buildEntryXml(entry: AvnacAnimationEntry, shapeId: number): string {
   const a = entryToPptxAttrs(entry)
-  const parId = nextId()
-  const seqId = nextId()
-  const animId = nextId()
+  // Need 4 unique IDs: outer trigger par, inner preset par, visibility set, anim effect
+  const outerParId  = nextId()
+  const presetParId = nextId()
+  const setId       = nextId()
+  const animId      = nextId()
+
+  const transition = entry.kind === 'exit' ? 'out' : 'in'
+  const filter = effectToFilter(entry.effect)
 
   return `<p:par>
-    <p:cTn id="${parId}" grpId="0" nodeType="${a.nodeType}">
+    <p:cTn id="${outerParId}" grpId="0" nodeType="${a.nodeType}">
       <p:stCondLst><p:cond delay="${a.delayMs}"/></p:stCondLst>
       <p:childTnLst>
-        <p:animEffect transition="in" filter="fade" filterData="">
-          <p:cBhvr>
-            <p:cTn id="${seqId}" dur="${a.durMs}" presetID="${a.presetID}" presetClass="${a.presetClass}" presetSubtype="${a.presetSubtype}" fill="hold" grpId="0" nodeType="clickEffect"/>
-            <p:tgtEl><p:spTgt spid="${shapeId}"/></p:tgtEl>
-          </p:cBhvr>
-        </p:animEffect>
-        <p:set>
-          <p:cBhvr>
-            <p:cTn id="${animId}" dur="1" fill="hold"/>
-            <p:tgtEl><p:spTgt spid="${shapeId}"/></p:tgtEl>
-            <p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>
-          </p:cBhvr>
-          <p:to><p:strVal val="visible"/></p:to>
-        </p:set>
+        <p:par>
+          <p:cTn id="${presetParId}" presetID="${a.presetID}" presetClass="${a.presetClass}" presetSubtype="${a.presetSubtype}" fill="hold" grpId="0" nodeType="withEffect" dur="${a.durMs}">
+            <p:stCondLst><p:cond delay="0"/></p:stCondLst>
+            <p:childTnLst>
+              <p:set>
+                <p:cBhvr>
+                  <p:cTn id="${setId}" dur="1" fill="hold"/>
+                  <p:tgtEl><p:spTgt spid="${shapeId}"/></p:tgtEl>
+                  <p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>
+                </p:cBhvr>
+                <p:to><p:strVal val="visible"/></p:to>
+              </p:set>
+              <p:animEffect transition="${transition}" filter="${filter}">
+                <p:cBhvr>
+                  <p:cTn id="${animId}" dur="${a.durMs}"/>
+                  <p:tgtEl><p:spTgt spid="${shapeId}"/></p:tgtEl>
+                </p:cBhvr>
+              </p:animEffect>
+            </p:childTnLst>
+          </p:cTn>
+        </p:par>
       </p:childTnLst>
     </p:cTn>
   </p:par>`

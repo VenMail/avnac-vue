@@ -184,15 +184,15 @@ export function useToolbarSync(
   function syncChartKind() {
     const canvas = fabricCanvas.value
     if (!canvas) return
+    const targets = canvas.getActiveObjects()
     const obj = canvas.getActiveObject()
-    if (!obj) return
-    const kind = getAvnacGroupKind(obj)
-    if (kind === 'chart' && canvasStore.shapeToolbarModel) {
-      // Attach chart kind to the existing model so toolbar shows "Edit data"
-      ;(canvasStore.shapeToolbarModel as any).meta = {
-        ...((canvasStore.shapeToolbarModel as any).meta ?? {}),
-        kind: 'chart',
-      }
+    if (targets.length !== 1 || !obj) return
+    if (getAvnacGroupKind(obj) !== 'chart') return
+    // syncShapeToolbar cleared shapeToolbarModel for chart objects (not in shapeBarKind list).
+    // Set a synthetic model so CanvasElementToolbar shows "Edit data" button.
+    canvasStore.shapeToolbarModel = {
+      meta: { kind: 'chart' as any },
+      paint: bgValueFromFabricFill(obj),
     }
   }
 

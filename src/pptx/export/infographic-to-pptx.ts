@@ -44,13 +44,14 @@ export function addInfographicToPptx(
   artboardH: number,
   slideW: number,
   slideH: number,
-): void {
+): number {
   const infData = obj.avnacInfographic
-  if (!infData) return
+  if (!infData) return 0
 
   const specs = renderInfographic(infData)
   const scaleX = obj.scaleX ?? 1
   const scaleY = obj.scaleY ?? 1
+  let count = 0
 
   for (const child of specs) {
     const { x, y, w, h } = childToSlideCoords(
@@ -65,11 +66,11 @@ export function addInfographicToPptx(
     if (child.type === 'Rect' || child.type === 'Circle') {
       const rectRadius = child.type === 'Circle' ? 1 : undefined
       slide.addShape('rect' as PptxGenJS.ShapeType, { x, y, w, h, rotate, fill, line, rectRadius })
+      count++
     } else if (child.type === 'Ellipse') {
       slide.addShape('ellipse' as PptxGenJS.ShapeType, { x, y, w, h, rotate, fill, line })
+      count++
     } else if (child.type === 'Polygon' && child.points) {
-      // Convert polygon points to pptxgenjs custom geometry
-      // Normalize to 0..1 relative coords within the group's width/height space
       const gW = infData.options.width || 1
       const gH = infData.options.height || 1
       try {
@@ -82,9 +83,9 @@ export function addInfographicToPptx(
           points: cusPoints as any,
         } as any)
       } catch {
-        // Fallback to rect if custom geometry not supported
         slide.addShape('rect' as PptxGenJS.ShapeType, { x, y, w, h, rotate, fill, line })
       }
+      count++
     } else if (child.type === 'Textbox' && child.text) {
       slide.addText(child.text, {
         x, y, w, h, rotate,
@@ -94,6 +95,8 @@ export function addInfographicToPptx(
         color: (child.fill ?? '#262626').replace('#', ''),
         valign: 'middle',
       })
+      count++
     }
   }
+  return count
 }

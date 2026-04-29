@@ -51,7 +51,7 @@ import { captureAvnacDocument, type AvnacDocumentV1 } from '#/lib/avnac-document
 import { linearGradientForBox } from '#/lib/fabric-linear-gradient'
 import { getAvnacLocked } from '#/lib/avnac-object-lock'
 import { removeActiveObjectFromCanvas } from '#/lib/fabric-remove-selection'
-import { getSceneHandleSizesForArtboard, applySceneHandleSizesToCanvas } from '#/lib/fabric-selection-chrome'
+import { getSceneHandleSizesForArtboard, applySceneHandleSizesToCanvas, applySceneHandleSizesToInteractiveObject } from '#/lib/fabric-selection-chrome'
 
 // ────────────────────────────────────────────
 // Props / emits
@@ -192,18 +192,89 @@ watch(() => canvasStore.ready, async (ready) => {
   // Re-apply viewport transform after text editing exits to guard against any state drift
   canvas.on('text:editing:exited', () => applyFabricZoom())
 
-  // Double-click on a group: enter editing on any textbox subTarget.
-  // Fabric populates canvas.targets with sub-objects when subTargetCheck: true.
-  // enterEditing() works on a textbox inside a group (Fabric 6 has no group check).
+  // Re-apply zoom-correct handle sizes to each newly added object.
+  // customizeControlMap bakes hardcoded sizeX/sizeY into Control instances at object
+  // creation time; objects added after applyFabricZoom runs need this post-add fixup.
+  canvas.on('object:added', (evt: any) => {
+    const m = fabricMod.value
+    if (!m) return
+    const obj = evt.target
+    if (!(obj instanceof m.InteractiveFabricObject)) return
+    const sizes = getSceneHandleSizesForArtboard(
+      Math.min(artboardWRef.value, artboardHRef.value),
+      zoomPercent.value,
+    )
+    applySceneHandleSizesToInteractiveObject(obj, sizes)
+  })
+
+  // Double-click inside a Group: edit text via a phantom overlay textbox.
+  //
+  // We cannot call canvas.setActiveObject(groupChild) directly — the child renders
+  // in group-local coords, so the editing cursor appears at the wrong position.
+  // Instead we create a temporary Textbox at the group-absolute canvas position,
+  // edit that, then write the result back to the original child in the group.
   canvas.on('mouse:dblclick', (opt: any) => {
     const target = opt.target
     if (!target || target.type !== 'group') return
     const subs: any[] = (canvas as any).targets ?? []
     const tb = subs.find((s: any) => s.type === 'textbox' || s.type === 'i-text')
     if (!tb || !tb.enterEditing) return
-    canvas.setActiveObject(tb)
-    tb.enterEditing()
+    const mod = fabricMod.value
+    if (!mod) return
+
+    // Build phantom with same visual properties as the original child.
+    const phantom = new mod.Textbox(tb.text as string, {
+      left:         (tb.left         ?? 0)       as number,
+      top:          (tb.top          ?? 0)       as number,
+      width:        (tb.width        ?? 200)     as number,
+      fontSize:     tb.fontSize                  as number,
+      fontFamily:   (tb.fontFamily   ?? 'Inter') as string,
+      fontWeight:   (tb.fontWeight   ?? 'normal') as string,
+      fontStyle:    (tb.fontStyle    ?? 'normal') as string,
+      textAlign:    (tb.textAlign    ?? 'left')   as string,
+      fill:         (tb.fill         ?? '#262626') as string,
+      scaleX:       (tb.scaleX       ?? 1)        as number,
+      scaleY:       (tb.scaleY       ?? 1)        as number,
+      angle:        (tb.angle        ?? 0)        as number,
+      lineHeight:   (tb.lineHeight   ?? 1.16)     as number,
+      charSpacing:  (tb.charSpacing  ?? 0)        as number,
+      underline:    (tb.underline    ?? false)     as boolean,
+      padding: 0,
+    })
+
+    // Transform phantom from the group's local coordinate plane → canvas plane
+    // so it visually overlays the original textbox at the correct position.
+    const sop = (mod.util as any).sendObjectToPlane
+    if (sop) sop(phantom, target.calcTransformMatrix(), undefined)
+
+    // Hide original to avoid double-rendering while the phantom is live.
+    tb.visible = false
+    target.dirty = true
+
+    // Add phantom without triggering the change-emit listener (phantom must not
+    // appear in persisted document snapshots).
+    suppressChangeEmit = true
+    canvas.add(phantom)
+    suppressChangeEmit = false
+
+    canvas.setActiveObject(phantom)
+    phantom.enterEditing()
     canvas.requestRenderAll()
+
+    // When editing exits: write text back to the original child and tear down.
+    phantom.once('editing:exited', () => {
+      tb.set({ text: phantom.text })
+      tb.visible = true
+      target.dirty = true
+      suppressChangeEmit = true
+      canvas.remove(phantom)
+      suppressChangeEmit = false
+      canvas.discardActiveObject()
+      canvas.setActiveObject(target)
+      canvas.requestRenderAll()
+      // Emit change so the updated text is persisted.
+      emitChange()
+    })
   })
 
   await nextTick()
@@ -258,7 +329,12 @@ function getDocument(): AvnacDocumentV1 {
   })
 }
 
+// Suppressed while a phantom editing-overlay textbox is live on the canvas
+// so the phantom doesn't pollute the persisted document.
+let suppressChangeEmit = false
+
 function emitChange() {
+  if (suppressChangeEmit) return
   const canvas = fabricCanvas.value
   if (!canvas) return
   emit('change', getDocument())

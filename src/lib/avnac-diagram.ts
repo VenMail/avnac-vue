@@ -22,6 +22,7 @@ export interface DiagramEdge {
   label?: string
   style: 'solid' | 'dashed'
   arrowEnd: boolean
+  routing?: 'straight' | 'orthogonal'
 }
 
 export interface AvnacDiagramData {

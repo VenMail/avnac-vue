@@ -254,8 +254,8 @@ function customizeControlMap(
       mouseUpHandler: ml.mouseUpHandler,
       actionName: ml.actionName,
       render: renderSidePill,
-      sizeX: 64,
-      sizeY: 22,
+      sizeX: 24,
+      sizeY: 14,
     })
   }
   if (mr) {
@@ -271,8 +271,8 @@ function customizeControlMap(
       mouseUpHandler: mr.mouseUpHandler,
       actionName: mr.actionName,
       render: renderSidePill,
-      sizeX: 64,
-      sizeY: 22,
+      sizeX: 24,
+      sizeY: 14,
     })
   }
   const mtr = controls.mtr
@@ -281,15 +281,15 @@ function customizeControlMap(
       x: 0,
       y: 0.5,
       offsetX: mtr.offsetX ?? 0,
-      offsetY: 88,
+      offsetY: 32,
       withConnection: true,
       actionHandler: mtr.actionHandler,
       cursorStyleHandler: mtr.cursorStyleHandler,
       mouseDownHandler: mtr.mouseDownHandler,
       mouseUpHandler: mtr.mouseUpHandler,
       actionName: mtr.actionName,
-      sizeX: 56,
-      sizeY: 56,
+      sizeX: 18,
+      sizeY: 18,
     })
   }
 }
@@ -337,15 +337,17 @@ function patchStrokeBordersScreenThickness(fab: typeof import('fabric')) {
 
 export function installFabricSelectionChrome(fabric: typeof import('fabric')) {
   if (!ownDefaultsApplied) {
+    // Baselines — applySceneHandleSizesToInteractiveObject is the runtime source of truth.
+    // These values only matter before zoom is first computed.
     Object.assign(fabric.InteractiveFabricObject.ownDefaults, {
       borderColor: EDITOR_CANVAS_ACCENT,
       cornerColor: '#ffffff',
       cornerStrokeColor: HANDLE_RING_STROKE,
       transparentCorners: false,
       cornerStyle: 'circle',
-      cornerSize: 56,
-      touchCornerSize: 112,
-      borderScaleFactor: 2.5,
+      cornerSize: 11,
+      touchCornerSize: 22,
+      borderScaleFactor: 1,
       hoverCursor: 'move',
     })
     ownDefaultsApplied = true

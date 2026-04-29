@@ -1,5 +1,54 @@
 import type { FabricObject } from 'fabric'
 
+// ── Logical-group membership tags ────────────────────────────────────────────
+// These live as sibling Fabric props, NOT inside AvnacShapeMeta.
+// Shape kind (rect, ellipse…) is orthogonal to logical-group membership.
+
+export type AvnacGroupKind = 'infographic' | 'diagram' | 'chart'
+
+export type AvnacGroupRole =
+  | 'shape'
+  | 'label'
+  | 'sublabel'
+  | 'value'
+  | 'decoration'
+  | 'arrow-head'
+
+type GroupTagged = FabricObject & {
+  avnacGroupId?: string
+  avnacGroupKind?: AvnacGroupKind
+  avnacGroupRole?: AvnacGroupRole
+  avnacGroupItemIndex?: number
+}
+
+export function getAvnacGroupId(obj: FabricObject): string | null {
+  return (obj as GroupTagged).avnacGroupId ?? null
+}
+
+export function getAvnacGroupKind(obj: FabricObject): AvnacGroupKind | null {
+  return (obj as GroupTagged).avnacGroupKind ?? null
+}
+
+export function getAvnacGroupRole(obj: FabricObject): AvnacGroupRole | null {
+  return (obj as GroupTagged).avnacGroupRole ?? null
+}
+
+export function setAvnacGroupTag(
+  obj: FabricObject,
+  opts: {
+    id: string
+    kind: AvnacGroupKind
+    role: AvnacGroupRole
+    itemIndex?: number
+  },
+): void {
+  const t = obj as GroupTagged
+  t.avnacGroupId = opts.id
+  t.avnacGroupKind = opts.kind
+  t.avnacGroupRole = opts.role
+  if (opts.itemIndex !== undefined) t.avnacGroupItemIndex = opts.itemIndex
+}
+
 export type AvnacShapeKind =
   | 'rect'
   | 'ellipse'

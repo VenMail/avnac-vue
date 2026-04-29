@@ -52,6 +52,8 @@ import { linearGradientForBox } from '#/lib/fabric-linear-gradient'
 import { getAvnacLocked } from '#/lib/avnac-object-lock'
 import { removeActiveObjectFromCanvas } from '#/lib/fabric-remove-selection'
 import { getSceneHandleSizesForArtboard, applySceneHandleSizesToCanvas, applySceneHandleSizesToInteractiveObject } from '#/lib/fabric-selection-chrome'
+import { getAvnacGroupId } from '#/lib/avnac-shape-meta'
+import { findGroupMembers } from '#/lib/avnac-logical-group'
 
 // ────────────────────────────────────────────
 // Props / emits
@@ -207,14 +209,72 @@ watch(() => canvasStore.ready, async (ready) => {
     applySceneHandleSizesToInteractiveObject(obj, sizes)
   })
 
-  // Double-click inside a Group: edit text via a phantom overlay textbox.
-  //
-  // We cannot call canvas.setActiveObject(groupChild) directly — the child renders
-  // in group-local coords, so the editing cursor appears at the wrong position.
-  // Instead we create a temporary Textbox at the group-absolute canvas position,
-  // edit that, then write the result back to the original child in the group.
+  // Flat logical-group selection: when a member of a logical group is clicked,
+  // promote the selection to an ActiveSelection of all group siblings.
+  canvas.on('selection:created', (evt: any) => {
+    const mod = fabricMod.value
+    if (!mod) return
+    const active = canvas.getActiveObject() as any
+    if (!active) return
+    // Skip if already an ActiveSelection (could be user-drawn marquee)
+    if (active instanceof mod.ActiveSelection) return
+
+    const groupId = getAvnacGroupId(active)
+    if (!groupId) return
+
+    // Don't auto-expand when the user has drilled into a specific child
+    if ((canvas as any).__avnacDrilledGroupId === groupId) return
+
+    const members = findGroupMembers(canvas, groupId)
+    if (members.length <= 1) return
+
+    const sel = new mod.ActiveSelection(members, { canvas: canvas as any })
+    canvas.setActiveObject(sel as any)
+    canvas.requestRenderAll()
+  })
+
+  canvas.on('selection:updated', (evt: any) => {
+    const mod = fabricMod.value
+    if (!mod) return
+    const active = canvas.getActiveObject() as any
+    if (!active) return
+    if (active instanceof mod.ActiveSelection) return
+
+    const groupId = getAvnacGroupId(active)
+    if (!groupId) return
+    if ((canvas as any).__avnacDrilledGroupId === groupId) return
+
+    const members = findGroupMembers(canvas, groupId)
+    if (members.length <= 1) return
+
+    const sel = new mod.ActiveSelection(members, { canvas: canvas as any })
+    canvas.setActiveObject(sel as any)
+    canvas.requestRenderAll()
+  })
+
+  // Clear drill-in state when selection cleared (background click or Escape)
+  canvas.on('selection:cleared', () => {
+    ;(canvas as any).__avnacDrilledGroupId = null
+  })
+
+  // Double-click on a flat-group textbox: drill in and enter editing directly.
+  // Flat group members are top-level canvas objects, so no phantom/coord transform needed.
   canvas.on('mouse:dblclick', (opt: any) => {
-    const target = opt.target
+    const target = opt.target as any
+    if (!target) return
+
+    const groupId = getAvnacGroupId(target)
+    if (groupId && (target.type === 'textbox' || target.type === 'i-text')) {
+      // Drill into this child: clear group selection, set single object active
+      ;(canvas as any).__avnacDrilledGroupId = groupId
+      canvas.discardActiveObject()
+      canvas.setActiveObject(target)
+      if (target.enterEditing) target.enterEditing()
+      canvas.requestRenderAll()
+      return
+    }
+
+    // Legacy: double-click on a Fabric Group (non-flat composites, e.g. arrow groups)
     if (!target || target.type !== 'group') return
     const subs: any[] = (canvas as any).targets ?? []
     const tb = subs.find((s: any) => s.type === 'textbox' || s.type === 'i-text')
@@ -222,7 +282,6 @@ watch(() => canvasStore.ready, async (ready) => {
     const mod = fabricMod.value
     if (!mod) return
 
-    // Build phantom with same visual properties as the original child.
     const phantom = new mod.Textbox(tb.text as string, {
       left:         (tb.left         ?? 0)       as number,
       top:          (tb.top          ?? 0)       as number,
@@ -242,17 +301,12 @@ watch(() => canvasStore.ready, async (ready) => {
       padding: 0,
     })
 
-    // Transform phantom from the group's local coordinate plane → canvas plane
-    // so it visually overlays the original textbox at the correct position.
     const sop = (mod.util as any).sendObjectToPlane
     if (sop) sop(phantom, target.calcTransformMatrix(), undefined)
 
-    // Hide original to avoid double-rendering while the phantom is live.
     tb.visible = false
     target.dirty = true
 
-    // Add phantom without triggering the change-emit listener (phantom must not
-    // appear in persisted document snapshots).
     suppressChangeEmit = true
     canvas.add(phantom)
     suppressChangeEmit = false
@@ -261,7 +315,6 @@ watch(() => canvasStore.ready, async (ready) => {
     phantom.enterEditing()
     canvas.requestRenderAll()
 
-    // When editing exits: write text back to the original child and tear down.
     phantom.once('editing:exited', () => {
       tb.set({ text: phantom.text })
       tb.visible = true
@@ -272,7 +325,6 @@ watch(() => canvasStore.ready, async (ready) => {
       canvas.discardActiveObject()
       canvas.setActiveObject(target)
       canvas.requestRenderAll()
-      // Emit change so the updated text is persisted.
       emitChange()
     })
   })

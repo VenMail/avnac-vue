@@ -89,6 +89,27 @@
       </svg>
     </button>
 
+    <!-- Edit chart data (shown when chart group is selected) -->
+    <template v-if="canvasStore.shapeToolbarModel?.meta?.kind === ('chart' as any)">
+      <div class="avnac-divider" />
+      <button class="avnac-toolbar-btn" title="Edit chart data" @click="emit('editChartData')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="8" height="6" rx="1"/><rect x="13" y="3" width="8" height="6" rx="1"/>
+          <rect x="3" y="13" width="8" height="6" rx="1"/><rect x="13" y="13" width="8" height="6" rx="1"/>
+        </svg>
+        <span style="font-size:11px;margin-left:2px">Data</span>
+      </button>
+    </template>
+
+    <!-- Animate -->
+    <button class="avnac-toolbar-btn" title="Animations" @click="emit('openAnimationPanel')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2l2.4 4.8 5.3.8-3.8 3.7.9 5.2L12 14l-4.8 2.5.9-5.2L4.3 7.6l5.3-.8z"/>
+      </svg>
+    </button>
+
+    <div class="avnac-divider" />
+
     <!-- Delete -->
     <button class="avnac-toolbar-btn danger" title="Delete" @click="emit('delete')">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -129,6 +150,8 @@ const emit = defineEmits<{
   opacityChange: [v: number]
   shadowChange: [v: FabricShadowUi]
   shadowToggle: []
+  openAnimationPanel: []
+  editChartData: []
   delete: []
 }>()
 </script>

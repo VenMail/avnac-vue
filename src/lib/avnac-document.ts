@@ -10,6 +10,14 @@ export const OBJECT_SERIAL_KEYS = [
   'avnacLayerId',
   'avnacLayerName',
   'avnacVectorBoardId',
+  'avnacGroupId',
+  'avnacGroupKind',
+  'avnacGroupRole',
+  'avnacGroupItemIndex',
+  'avnacInfographicData',
+  'avnacDiagramData',
+  'avnacChartData',
+  'avnacAnimations',
 ] as const
 
 export function captureAvnacDocument(
@@ -24,11 +32,11 @@ export function captureAvnacDocument(
   }
 }
 
-export const AVNAC_DOC_VERSION = 1 as const
+export const AVNAC_DOC_VERSION = 2 as const
 export const AVNAC_STORAGE_KEY = 'avnac-editor-document'
 
 export type AvnacDocumentV1 = {
-  v: typeof AVNAC_DOC_VERSION
+  v: 1 | 2
   artboard: { width: number; height: number }
   bg: BgValue
   fabric: Record<string, unknown>
@@ -37,7 +45,8 @@ export type AvnacDocumentV1 = {
 export function parseAvnacDocument(raw: unknown): AvnacDocumentV1 | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Partial<AvnacDocumentV1>
-  if (o.v !== AVNAC_DOC_VERSION) return null
+  // Accept v:1, v:2, or missing v (legacy) — no production data to migrate.
+  if (o.v !== undefined && o.v !== 1 && o.v !== 2) return null
   if (
     !o.artboard ||
     typeof o.artboard.width !== 'number' ||

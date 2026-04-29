@@ -9,6 +9,9 @@ export interface InfographicItem {
   sublabel?: string
   value?: string
   color?: string
+  fontSize?: number
+  fontWeight?: string
+  align?: 'left' | 'center' | 'right'
 }
 
 export interface AvnacInfographicData {
@@ -23,8 +26,24 @@ export interface AvnacInfographicData {
   }
 }
 
+export const INFOGRAPHIC_TEMPLATE_CONSTRAINTS: Record<
+  InfographicTemplate,
+  { minItems: number; maxItems: number; fixed?: boolean }
+> = {
+  pyramid:       { minItems: 2, maxItems: 6 },
+  funnel:        { minItems: 2, maxItems: 6 },
+  'timeline-h':  { minItems: 2, maxItems: 8 },
+  'timeline-v':  { minItems: 2, maxItems: 8 },
+  chevron:       { minItems: 2, maxItems: 6 },
+  cycle:         { minItems: 3, maxItems: 8 },
+  venn:          { minItems: 3, maxItems: 3, fixed: true },
+  accordion:     { minItems: 1, maxItems: 8 },
+  'matrix-2x2':  { minItems: 4, maxItems: 4, fixed: true },
+}
+
 const DEFAULT_COLORS = [
   '#4472c4', '#ed7d31', '#a9d18e', '#ffc000', '#70ad47', '#ff6b6b',
+  '#c55a11', '#7030a0',
 ]
 
 const DEFAULT_ITEMS_3: InfographicItem[] = [
@@ -32,7 +51,6 @@ const DEFAULT_ITEMS_3: InfographicItem[] = [
   { label: 'Step 2', sublabel: 'Description here', value: '33%' },
   { label: 'Step 3', sublabel: 'Description here', value: '34%' },
 ]
-
 
 export function defaultInfographicData(template: InfographicTemplate): AvnacInfographicData {
   const isMatrix = template === 'matrix-2x2'

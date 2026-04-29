@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import type { BgValue } from '#/lib/bg-value'
 import type { FabricShadowUi } from '#/lib/avnac-fabric-shadow'
 import type { AvnacShapeMeta } from '#/lib/avnac-shape-meta'
+import type { AvnacAnimationEntry } from '#/lib/avnac-animation'
 
 export interface TextFormatToolbarValues {
   fontFamily: string
@@ -61,6 +62,7 @@ export const useCanvasStore = defineStore('canvas', () => {
   const selectionShadowUi = ref<FabricShadowUi>({ ...DEFAULT_SHADOW_UI })
   const selectionShadowActive = ref(false)
   const transformDimensionUi = ref<TransformDimensionUi | null>(null)
+  const animationToolbarModel = ref<{ entries: AvnacAnimationEntry[] } | null>(null)
 
   function tickSelection() {
     selectionRev.value++
@@ -77,6 +79,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     selectionOutlineStrokeWidth.value = 0
     transformDimensionUi.value = null
     selectionShadowActive.value = false
+    animationToolbarModel.value = null
     tickSelection()
   }
 
@@ -99,6 +102,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     selectionShadowUi,
     selectionShadowActive,
     transformDimensionUi,
+    animationToolbarModel,
     tickSelection,
     clearSelection,
   }

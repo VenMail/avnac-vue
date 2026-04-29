@@ -8,6 +8,7 @@ export type EditorSidebarPanelId =
   | 'charts'
   | 'infographics'
   | 'diagrams'
+  | 'animations'
 
 /** Matches `editor-floating-sidebar` offset and create-page header height. */
 export const editorSidebarPanelTopClass =

@@ -1,5 +1,7 @@
-// Spec-based Fabric object descriptions for diagram nodes and edges
+// Flat Fabric object spec descriptions for diagram nodes and edges.
+// Each spec carries group-tag fields for flat logical-group architecture.
 import type { DiagramNode, DiagramEdge, AvnacDiagramData } from './avnac-diagram'
+import type { AvnacGroupRole } from './avnac-shape-meta'
 
 export interface DiagramChildSpec {
   type: 'Rect' | 'Polygon' | 'Textbox' | 'Line'
@@ -21,6 +23,11 @@ export interface DiagramChildSpec {
   avnacDiagramNodeId?: string
   avnacDiagramEdgeId?: string
   dashArray?: number[]
+  // Logical-group membership
+  avnacGroupId?: string
+  avnacGroupKind?: string
+  avnacGroupRole?: AvnacGroupRole
+  avnacGroupItemIndex?: number
 }
 
 function nodeColor(node: DiagramNode): string {
@@ -28,15 +35,31 @@ function nodeColor(node: DiagramNode): string {
   return '#4472c4'
 }
 
-function nodeSpecs(node: DiagramNode): DiagramChildSpec[] {
+function tagSpec(
+  spec: DiagramChildSpec,
+  groupId: string | undefined,
+  role: AvnacGroupRole,
+  idx: number,
+): DiagramChildSpec {
+  if (!groupId) return spec
+  return { ...spec, avnacGroupId: groupId, avnacGroupKind: 'diagram', avnacGroupRole: role, avnacGroupItemIndex: idx }
+}
+
+function nodeSpecs(node: DiagramNode, groupId: string | undefined, nodeIndex: number): DiagramChildSpec[] {
   const { x, y, w, h, type, label } = node
   const color = nodeColor(node)
   const specs: DiagramChildSpec[] = []
 
   if (type === 'process' || type === 'org-node') {
-    specs.push({ type: 'Rect', left: x, top: y, width: w, height: h, fill: color, rx: 4, ry: 4, strokeWidth: 0, avnacDiagramNodeId: node.id })
+    specs.push(tagSpec(
+      { type: 'Rect', left: x, top: y, width: w, height: h, fill: color, rx: 4, ry: 4, strokeWidth: 0, avnacDiagramNodeId: node.id },
+      groupId, 'shape', nodeIndex,
+    ))
   } else if (type === 'terminal') {
-    specs.push({ type: 'Rect', left: x, top: y, width: w, height: h, fill: color, rx: h / 2, ry: h / 2, strokeWidth: 0, avnacDiagramNodeId: node.id })
+    specs.push(tagSpec(
+      { type: 'Rect', left: x, top: y, width: w, height: h, fill: color, rx: h / 2, ry: h / 2, strokeWidth: 0, avnacDiagramNodeId: node.id },
+      groupId, 'shape', nodeIndex,
+    ))
   } else if (type === 'decision') {
     const pts = [
       { x: x + w / 2, y },
@@ -44,7 +67,10 @@ function nodeSpecs(node: DiagramNode): DiagramChildSpec[] {
       { x: x + w / 2, y: y + h },
       { x, y: y + h / 2 },
     ]
-    specs.push({ type: 'Polygon', left: 0, top: 0, width: 1, height: 1, fill: color, strokeWidth: 0, points: pts, avnacDiagramNodeId: node.id })
+    specs.push(tagSpec(
+      { type: 'Polygon', left: 0, top: 0, width: 1, height: 1, fill: color, strokeWidth: 0, points: pts, avnacDiagramNodeId: node.id },
+      groupId, 'shape', nodeIndex,
+    ))
   } else if (type === 'io') {
     const pts = [
       { x: x + w * 0.15, y },
@@ -52,22 +78,27 @@ function nodeSpecs(node: DiagramNode): DiagramChildSpec[] {
       { x: x + w * 0.85, y: y + h },
       { x, y: y + h },
     ]
-    specs.push({ type: 'Polygon', left: 0, top: 0, width: 1, height: 1, fill: color, strokeWidth: 0, points: pts, avnacDiagramNodeId: node.id })
+    specs.push(tagSpec(
+      { type: 'Polygon', left: 0, top: 0, width: 1, height: 1, fill: color, strokeWidth: 0, points: pts, avnacDiagramNodeId: node.id },
+      groupId, 'shape', nodeIndex,
+    ))
   }
 
-  // Label textbox centered on node
-  specs.push({
-    type: 'Textbox',
-    left: x + 4,
-    top: y + h / 2 - 10,
-    width: w - 8,
-    height: 20,
-    text: label,
-    fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    fill: '#ffffff',
-  })
+  specs.push(tagSpec(
+    {
+      type: 'Textbox',
+      left: x + 4,
+      top: y + h / 2 - 10,
+      width: w - 8,
+      height: 20,
+      text: label,
+      fontSize: 12,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      fill: '#ffffff',
+    },
+    groupId, 'label', nodeIndex,
+  ))
 
   return specs
 }
@@ -83,40 +114,98 @@ function portXY(node: DiagramNode, port: string): { x: number; y: number } {
   }
 }
 
-function edgeSpec(edge: DiagramEdge, nodeMap: Map<string, DiagramNode>): DiagramChildSpec | null {
+// Returns elbow segments (x1y1→x2y2) for orthogonal routing.
+// For simplicity, uses an L-route via the midpoint between ports.
+function orthogonalSegments(
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+): Array<[number, number, number, number]> {
+  const mx = (p1.x + p2.x) / 2
+  return [
+    [p1.x, p1.y, mx, p1.y],
+    [mx, p1.y, mx, p2.y],
+    [mx, p2.y, p2.x, p2.y],
+  ]
+}
+
+function arrowHeadPolygon(
+  x2: number, y2: number,
+  x1: number, y1: number,
+): Array<{ x: number; y: number }> {
+  const angle = Math.atan2(y2 - y1, x2 - x1)
+  const len = 14, base = 8
+  const tip = { x: x2, y: y2 }
+  const left = {
+    x: x2 - len * Math.cos(angle) + base * Math.sin(angle),
+    y: y2 - len * Math.sin(angle) - base * Math.cos(angle),
+  }
+  const right = {
+    x: x2 - len * Math.cos(angle) - base * Math.sin(angle),
+    y: y2 - len * Math.sin(angle) + base * Math.cos(angle),
+  }
+  return [tip, left, right]
+}
+
+function edgeSpecs(
+  edge: DiagramEdge,
+  nodeMap: Map<string, DiagramNode>,
+  groupId: string | undefined,
+  edgeIndex: number,
+): DiagramChildSpec[] {
   const from = nodeMap.get(edge.fromId)
   const to = nodeMap.get(edge.toId)
-  if (!from || !to) return null
+  if (!from || !to) return []
 
   const p1 = portXY(from, edge.fromPort)
   const p2 = portXY(to, edge.toPort)
+  const specs: DiagramChildSpec[] = []
+  const dash = edge.style === 'dashed' ? [4, 4] : undefined
 
-  return {
-    type: 'Line',
-    left: 0, top: 0, width: 1, height: 1,
-    x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
-    stroke: '#888888',
-    strokeWidth: 1.5,
-    dashArray: edge.style === 'dashed' ? [4, 4] : undefined,
-    avnacDiagramEdgeId: edge.id,
+  if (edge.routing === 'orthogonal') {
+    const segs = orthogonalSegments(p1, p2)
+    for (const [x1, y1, x2, y2] of segs) {
+      specs.push(tagSpec(
+        { type: 'Line', left: 0, top: 0, width: 1, height: 1, x1, y1, x2, y2, stroke: '#888888', strokeWidth: 1.5, dashArray: dash, avnacDiagramEdgeId: edge.id },
+        groupId, 'shape', edgeIndex,
+      ))
+    }
+  } else {
+    specs.push(tagSpec(
+      { type: 'Line', left: 0, top: 0, width: 1, height: 1, x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, stroke: '#888888', strokeWidth: 1.5, dashArray: dash, avnacDiagramEdgeId: edge.id },
+      groupId, 'shape', edgeIndex,
+    ))
   }
+
+  // Arrowhead triangle at line tip
+  if (edge.arrowEnd) {
+    const tipX = p2.x, tipY = p2.y
+    // Use the last segment's direction for angle
+    const prevX = edge.routing === 'orthogonal' ? p1.x : p1.x
+    const prevY = edge.routing === 'orthogonal' ? p2.y : p1.y
+    const pts = arrowHeadPolygon(tipX, tipY, prevX, prevY)
+    specs.push(tagSpec(
+      { type: 'Polygon', left: 0, top: 0, width: 1, height: 1, fill: '#888888', strokeWidth: 0, points: pts, avnacDiagramEdgeId: edge.id },
+      groupId, 'arrow-head', edgeIndex,
+    ))
+  }
+
+  return specs
 }
 
-export function renderDiagram(data: AvnacDiagramData): DiagramChildSpec[] {
+export function renderDiagram(data: AvnacDiagramData, groupId?: string): DiagramChildSpec[] {
   const { nodes, edges } = data
   const specs: DiagramChildSpec[] = []
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
 
   // Draw edges first (under nodes)
-  for (const edge of edges) {
-    const spec = edgeSpec(edge, nodeMap)
-    if (spec) specs.push(spec)
-  }
+  edges.forEach((edge, i) => {
+    specs.push(...edgeSpecs(edge, nodeMap, groupId, i))
+  })
 
   // Draw nodes
-  for (const node of nodes) {
-    specs.push(...nodeSpecs(node))
-  }
+  nodes.forEach((node, i) => {
+    specs.push(...nodeSpecs(node, groupId, i))
+  })
 
   return specs
 }

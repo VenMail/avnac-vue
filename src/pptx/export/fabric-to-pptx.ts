@@ -10,6 +10,7 @@ import { addArrowToPptx } from './arrow-to-pptx'
 import { addChartToPptx } from './chart-to-pptx'
 import { addInfographicToPptx } from './infographic-to-pptx'
 import { addDiagramToPptx } from './diagram-to-pptx'
+import { addSmartObjectToPptx, collectSmartObjectExports } from './smart-object-to-pptx'
 
 const SLIDE_W_IN = 10
 const SLIDE_H_IN = 7.5
@@ -41,18 +42,31 @@ export function addDocumentToPresentation(
   }
 
   const objects = (doc.fabric as { objects?: unknown[] }).objects ?? []
+  const smartObjects = collectSmartObjectExports(objects)
+  const exportedSmartObjectIds = new Set<string>()
   const animRecords: ShapeAnimRecord[] = []
   let shapeId = PPTX_SHAPE_ID_START
 
-  for (const raw of objects) {
+  for (let index = 0; index < objects.length; index++) {
+    const raw = objects[index]
     const obj = raw as Record<string, unknown>
     const kind = (obj.avnacShape as { kind?: string } | undefined)?.kind
     const type = (obj.type as string | undefined)?.toLowerCase()
+    const smartObjectId = typeof obj.avnacSmartObjectId === 'string' ? obj.avnacSmartObjectId : null
+    const smartObject = smartObjectId ? smartObjects.get(smartObjectId) : null
+
+    if (smartObjectId && smartObject && exportedSmartObjectIds.has(smartObjectId)) continue
 
     try {
       let added = false
       // Specialized object kinds take priority
-      if (kind === 'infographic') {
+      if (smartObject && smartObject.firstIndex === index) {
+        const n = addSmartObjectToPptx(slide, smartObject, aw, ah, SLIDE_W_IN, SLIDE_H_IN)
+        exportedSmartObjectIds.add(smartObject.id)
+        shapeId += n
+      } else if (smartObject) {
+        continue
+      } else if (kind === 'infographic') {
         const n = addInfographicToPptx(slide, obj as any, aw, ah, SLIDE_W_IN, SLIDE_H_IN)
         shapeId += n  // advance past the N shapes infographic added
       } else if (kind === 'diagram') {

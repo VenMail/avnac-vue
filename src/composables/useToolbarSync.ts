@@ -61,10 +61,11 @@ export function useToolbarSync(
       canvasStore.textToolbarValues = null
       return
     }
-    // Suppress text toolbar when the IText is a child of a diagram/infographic group
-    // (drilled-in editing of placeholder labels should not surface global text controls).
+    // Suppress legacy diagram/infographic child text, but allow smart-object
+    // labels while the user is directly editing them.
     const groupKind = getAvnacGroupKind(obj)
-    if (groupKind === 'diagram' || groupKind === 'infographic') {
+    const isSmartObjectText = typeof (obj as IText & { avnacSmartObjectId?: unknown }).avnacSmartObjectId === 'string'
+    if ((groupKind === 'diagram' || groupKind === 'infographic') && !isSmartObjectText) {
       canvasStore.textToolbarValues = null
       return
     }
@@ -184,7 +185,10 @@ export function useToolbarSync(
     if (!canvas) { canvasStore.animationToolbarModel = null; return }
     const active = canvas.getActiveObject()
     if (!active) { canvasStore.animationToolbarModel = null; return }
-    const entries: AvnacAnimationEntry[] = (active as any).avnacAnimations ?? []
+    const targets = ('multiSelectionStacking' in active ? canvas.getActiveObjects() : [active])
+      .filter((obj) => (obj as { avnacSmartObjectRole?: string }).avnacSmartObjectRole !== 'frame')
+    if (!targets.length) { canvasStore.animationToolbarModel = null; return }
+    const entries: AvnacAnimationEntry[] = (targets[0] as any).avnacAnimations ?? []
     canvasStore.animationToolbarModel = { entries: [...entries] }
   }
 
@@ -228,6 +232,10 @@ export function useToolbarSync(
     canvas.on('selection:updated', syncAll)
     canvas.on('selection:cleared', () => canvasStore.clearSelection())
     canvas.on('object:modified', syncAll)
+    canvas.on('text:editing:entered', syncAll)
+    canvas.on('text:selection:changed', syncAll)
+    canvas.on('text:changed', syncAll)
+    canvas.on('text:editing:exited', syncAll)
   }
 
   return {

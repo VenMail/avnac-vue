@@ -17,9 +17,8 @@ export type SceneHandleSizes = {
 }
 
 /**
- * Target on-screen (CSS pixel) sizes for selection chrome.
- * Scene-pixel sizes = target_css / (zoom/100) so they render at the same visible size
- * regardless of artboard dimensions or zoom level.
+ * Fabric control sizes are already rendered in screen/CSS pixels. Keep them in
+ * CSS-pixel units; dividing by zoom makes handles explode on zoomed-out slides.
  */
 const TARGET_CORNER_CSS = 11
 const TARGET_SIDE_W_CSS = 26
@@ -28,20 +27,26 @@ const TARGET_MTR_CSS = 18
 const TARGET_MTR_OFFSET_Y_CSS = 26
 const TARGET_TOUCH_CORNER_CSS = 22
 
+const COMPACT_CORNER_CSS = 8
+const COMPACT_SIDE_W_CSS = 18
+const COMPACT_SIDE_H_CSS = 6
+const COMPACT_MTR_CSS = 14
+const COMPACT_MTR_OFFSET_Y_CSS = 21
+const COMPACT_TOUCH_CORNER_CSS = 18
+
 export function getSceneHandleSizesForArtboard(
   _minArtboardSide: number,
   zoomPct: number | null | undefined,
 ): SceneHandleSizes {
   const z = Math.max(5, Math.min(400, zoomPct ?? 100)) / 100
-  const scene = (css: number) => Math.max(1, Math.round(css / z))
 
-  const cornerSize = scene(TARGET_CORNER_CSS)
-  const sideW = scene(TARGET_SIDE_W_CSS)
-  const sideH = scene(TARGET_SIDE_H_CSS)
-  const mtrSize = scene(TARGET_MTR_CSS)
-  const mtrOffsetY = scene(TARGET_MTR_OFFSET_Y_CSS)
-  const touchCornerSize = scene(TARGET_TOUCH_CORNER_CSS)
-  const borderScaleFactor = Math.max(1, Math.round(1.5 / z))
+  const cornerSize = TARGET_CORNER_CSS
+  const sideW = TARGET_SIDE_W_CSS
+  const sideH = TARGET_SIDE_H_CSS
+  const mtrSize = TARGET_MTR_CSS
+  const mtrOffsetY = TARGET_MTR_OFFSET_Y_CSS
+  const touchCornerSize = TARGET_TOUCH_CORNER_CSS
+  const borderScaleFactor = Math.max(1, Math.round(1.5 / Math.max(1, z)))
 
   return {
     cornerSize,
@@ -54,28 +59,49 @@ export function getSceneHandleSizesForArtboard(
   }
 }
 
+function sizesForObject(
+  obj: InteractiveFabricObject,
+  base: SceneHandleSizes,
+): SceneHandleSizes {
+  const zoom = Math.max(Math.abs(obj.canvas?.viewportTransform?.[0] ?? 1), 0.01)
+  const bounds = obj.getBoundingRect()
+  const minVisibleSide = Math.min(bounds.width * zoom, bounds.height * zoom)
+  if (minVisibleSide >= 140) return base
+
+  return {
+    cornerSize: COMPACT_CORNER_CSS,
+    touchCornerSize: COMPACT_TOUCH_CORNER_CSS,
+    borderScaleFactor: 1,
+    sideW: COMPACT_SIDE_W_CSS,
+    sideH: COMPACT_SIDE_H_CSS,
+    mtrSize: COMPACT_MTR_CSS,
+    mtrOffsetY: COMPACT_MTR_OFFSET_Y_CSS,
+  }
+}
+
 export function applySceneHandleSizesToInteractiveObject(
   obj: InteractiveFabricObject,
   sizes: SceneHandleSizes,
 ) {
+  const resolved = sizesForObject(obj, sizes)
   obj.set({
-    cornerSize: sizes.cornerSize,
-    touchCornerSize: sizes.touchCornerSize,
-    borderScaleFactor: sizes.borderScaleFactor,
+    cornerSize: resolved.cornerSize,
+    touchCornerSize: resolved.touchCornerSize,
+    borderScaleFactor: resolved.borderScaleFactor,
   })
   const c = obj.controls
   if (c.ml) {
-    c.ml.sizeX = sizes.sideW
-    c.ml.sizeY = sizes.sideH
+    c.ml.sizeX = resolved.sideW
+    c.ml.sizeY = resolved.sideH
   }
   if (c.mr) {
-    c.mr.sizeX = sizes.sideW
-    c.mr.sizeY = sizes.sideH
+    c.mr.sizeX = resolved.sideW
+    c.mr.sizeY = resolved.sideH
   }
   if (c.mtr) {
-    c.mtr.sizeX = sizes.mtrSize
-    c.mtr.sizeY = sizes.mtrSize
-    c.mtr.offsetY = sizes.mtrOffsetY
+    c.mtr.sizeX = resolved.mtrSize
+    c.mtr.sizeY = resolved.mtrSize
+    c.mtr.offsetY = resolved.mtrOffsetY
   }
 }
 

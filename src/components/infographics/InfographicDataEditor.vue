@@ -47,10 +47,24 @@
         Values
       </label>
     </div>
+
+    <label v-if="isTimeline" class="range-option">
+      <span>Marker</span>
+      <input
+        type="range"
+        min="16"
+        max="96"
+        step="2"
+        :value="markerSize"
+        @input="updateOption('markerSize', Number(($event.target as HTMLInputElement).value))"
+      />
+      <span>{{ markerSize }}</span>
+    </label>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { AvnacInfographicData, InfographicItem } from '#/lib/avnac-infographic'
 
 const props = defineProps<{ modelValue: AvnacInfographicData }>()
@@ -84,6 +98,13 @@ function addItem() {
 
 function toggleOption(key: 'showLabels' | 'showValues') {
   patch({ options: { ...props.modelValue.options, [key]: !props.modelValue.options[key] } })
+}
+
+const isTimeline = computed(() => props.modelValue.template === 'timeline-h' || props.modelValue.template === 'timeline-v')
+const markerSize = computed(() => props.modelValue.options.markerSize ?? 34)
+
+function updateOption(key: keyof AvnacInfographicData['options'], value: AvnacInfographicData['options'][typeof key]) {
+  patch({ options: { ...props.modelValue.options, [key]: value } })
 }
 </script>
 
@@ -120,4 +141,14 @@ function toggleOption(key: 'showLabels' | 'showValues') {
 .add-btn:hover { background: var(--bg-subtle, #f5f5f5); }
 .options-row { display: flex; gap: 12px; }
 .option-toggle { display: flex; align-items: center; gap: 4px; font-size: 11px; cursor: pointer; }
+.range-option {
+  display: grid;
+  grid-template-columns: 48px 1fr 28px;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--fg-muted, #666);
+}
+.range-option input { width: 100%; }
+.range-option span:last-child { text-align: right; color: var(--fg-default, #262626); }
 </style>

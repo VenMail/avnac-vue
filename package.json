@@ -1,12 +1,13 @@
 {
   "name": "@venmail/avnac-vue",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "type": "module",
   "files": [
     "src"
   ],
   "exports": {
     ".": "./src/index.ts",
+    "./smart-objects": "./src/plugins/smart-objects/index.ts",
     "./src/*": "./src/*"
   },
   "scripts": {
@@ -23,7 +24,6 @@
   },
   "dependencies": {
     "chart.js": "^4.5.1",
-    "motion": "^11.18.2",
     "jszip": "^3.10.1",
     "pptxgenjs": "^3.12.0",
     "qrcode": "^1.5.4",

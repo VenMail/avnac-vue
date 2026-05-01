@@ -157,12 +157,11 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { AvnacDocumentV1 } from '@avnac/lib/avnac-document'
+import type { AvnacDocumentV1 } from '#/lib/avnac-document'
 
 const ARTBOARD_W = 4000
 const ARTBOARD_H = 2250
 const SOURCE_W = 1920
-const SOURCE_H = 1080
 const SCALE = ARTBOARD_W / SOURCE_W
 
 const props = defineProps<{

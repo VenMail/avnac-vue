@@ -92,7 +92,7 @@ function nodeSpecs(node: DiagramNode, groupId: string | undefined, nodeIndex: nu
       width: w - 8,
       height: 20,
       text: label,
-      fontSize: 12,
+      fontSize: node.fontSize ?? 12,
       fontWeight: 'bold',
       textAlign: 'center',
       fill: '#ffffff',
@@ -119,12 +119,23 @@ function portXY(node: DiagramNode, port: string): { x: number; y: number } {
 function orthogonalSegments(
   p1: { x: number; y: number },
   p2: { x: number; y: number },
+  fromPort: string,
+  toPort: string,
 ): Array<[number, number, number, number]> {
-  const mx = (p1.x + p2.x) / 2
+  if ((fromPort === 'left' || fromPort === 'right') && (toPort === 'left' || toPort === 'right')) {
+    const mx = (p1.x + p2.x) / 2
+    return [
+      [p1.x, p1.y, mx, p1.y],
+      [mx, p1.y, mx, p2.y],
+      [mx, p2.y, p2.x, p2.y],
+    ]
+  }
+
+  const my = (p1.y + p2.y) / 2
   return [
-    [p1.x, p1.y, mx, p1.y],
-    [mx, p1.y, mx, p2.y],
-    [mx, p2.y, p2.x, p2.y],
+    [p1.x, p1.y, p1.x, my],
+    [p1.x, my, p2.x, my],
+    [p2.x, my, p2.x, p2.y],
   ]
 }
 
@@ -162,8 +173,9 @@ function edgeSpecs(
   const dash = edge.style === 'dashed' ? [4, 4] : undefined
 
   if (edge.routing === 'orthogonal') {
-    const segs = orthogonalSegments(p1, p2)
+    const segs = orthogonalSegments(p1, p2, edge.fromPort, edge.toPort)
     for (const [x1, y1, x2, y2] of segs) {
+      if (x1 === x2 && y1 === y2) continue
       specs.push(tagSpec(
         { type: 'Line', left: 0, top: 0, width: 1, height: 1, x1, y1, x2, y2, stroke: '#888888', strokeWidth: 1.5, dashArray: dash, avnacDiagramEdgeId: edge.id },
         groupId, 'shape', edgeIndex,
@@ -179,9 +191,12 @@ function edgeSpecs(
   // Arrowhead triangle at line tip
   if (edge.arrowEnd) {
     const tipX = p2.x, tipY = p2.y
-    // Use the last segment's direction for angle
-    const prevX = edge.routing === 'orthogonal' ? p1.x : p1.x
-    const prevY = edge.routing === 'orthogonal' ? p2.y : p1.y
+    const segs = edge.routing === 'orthogonal'
+      ? orthogonalSegments(p1, p2, edge.fromPort, edge.toPort).filter(([x1, y1, x2, y2]) => x1 !== x2 || y1 !== y2)
+      : [[p1.x, p1.y, p2.x, p2.y] as [number, number, number, number]]
+    const last = segs[segs.length - 1]
+    const prevX = last?.[0] ?? p1.x
+    const prevY = last?.[1] ?? p1.y
     const pts = arrowHeadPolygon(tipX, tipY, prevX, prevY)
     specs.push(tagSpec(
       { type: 'Polygon', left: 0, top: 0, width: 1, height: 1, fill: '#888888', strokeWidth: 0, points: pts, avnacDiagramEdgeId: edge.id },
@@ -210,7 +225,25 @@ export function renderDiagram(data: AvnacDiagramData, groupId?: string): Diagram
   return specs
 }
 
-// Bounding box of all nodes
+// Visible content bounds of all nodes, in diagram-local coordinates.
+export function diagramContentBounds(data: AvnacDiagramData): { x: number; y: number; w: number; h: number } {
+  if (data.nodes.length === 0) return { x: 0, y: 0, w: 400, h: 300 }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const n of data.nodes) {
+    minX = Math.min(minX, n.x)
+    minY = Math.min(minY, n.y)
+    maxX = Math.max(maxX, n.x + n.w)
+    maxY = Math.max(maxY, n.y + n.h)
+  }
+  return {
+    x: Number.isFinite(minX) ? minX : 0,
+    y: Number.isFinite(minY) ? minY : 0,
+    w: Number.isFinite(maxX - minX) ? maxX - minX : 400,
+    h: Number.isFinite(maxY - minY) ? maxY - minY : 300,
+  }
+}
+
+// Legacy bounding size from diagram-local origin.
 export function diagramBounds(data: AvnacDiagramData): { w: number; h: number } {
   if (data.nodes.length === 0) return { w: 400, h: 300 }
   let maxX = 0, maxY = 0

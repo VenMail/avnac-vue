@@ -6,6 +6,7 @@ export interface DiagramNode {
   id: string
   type: DiagramNodeType
   label: string
+  fontSize?: number
   x: number  // artboard px, relative to diagram group origin
   y: number
   w: number

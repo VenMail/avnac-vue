@@ -11,6 +11,9 @@ import { ensureGoogleFontFamilyReady } from '#/lib/load-google-font'
 import { setAvnacStroke } from '#/lib/avnac-fill-paint'
 import { useCanvasStore } from '#/stores/canvas'
 
+type GesturePoint = { x: number; y: number }
+type LineGestureKind = 'line' | 'arrow'
+
 export function useShapeTools(
   fabricCanvas: ShallowRef<Canvas | null>,
   fabricMod: ShallowRef<typeof import('fabric') | null>,
@@ -18,6 +21,7 @@ export function useShapeTools(
   artboardHRef: { value: number },
 ) {
   const canvasStore = useCanvasStore()
+  let cleanupLineDrawMode: (() => void) | null = null
 
   function layout() {
     const w = artboardWRef.value
@@ -238,6 +242,256 @@ export function useShapeTools(
     canvas.requestRenderAll()
   }
 
+  function pointFromEvent(canvas: Canvas, event: unknown): GesturePoint {
+    const withScenePoint = canvas as Canvas & { getScenePoint?: (e: unknown) => GesturePoint }
+    if (withScenePoint.getScenePoint) return withScenePoint.getScenePoint(event)
+    return (canvas as Canvas & { getPointer: (e: unknown) => GesturePoint }).getPointer(event)
+  }
+
+  function pathLength(points: GesturePoint[]): number {
+    let len = 0
+    for (let i = 1; i < points.length; i++) {
+      len += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
+    }
+    return len
+  }
+
+  function curveBulgeFromPoints(points: GesturePoint[]): number {
+    const first = points[0]
+    const last = points[points.length - 1]
+    const dx = last.x - first.x
+    const dy = last.y - first.y
+    const len = Math.max(1, Math.hypot(dx, dy))
+    const nx = -dy / len
+    const ny = dx / len
+    let strongest = 0
+    for (const point of points) {
+      const signed = (point.x - first.x) * nx + (point.y - first.y) * ny
+      if (Math.abs(signed) > Math.abs(strongest)) strongest = signed
+    }
+    return strongest * 2
+  }
+
+  function createFreehandPath(points: GesturePoint[], kind: LineGestureKind) {
+    const canvas = fabricCanvas.value
+    const mod = fabricMod.value
+    if (!canvas || !mod || points.length < 2) return
+    const paint = canvasStore.selectedPaint
+    const color = bgValueSolidFallback(paint)
+    const d = points
+      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${Math.round(point.x * 10) / 10} ${Math.round(point.y * 10) / 10}`)
+      .join(' ')
+    const path = new mod.Path(d, {
+      fill: '',
+      stroke: color,
+      strokeWidth: 5,
+      strokeLineCap: 'round',
+      strokeLineJoin: 'round',
+      objectCaching: false,
+    })
+    setAvnacStroke(path, paint)
+    setAvnacShapeMeta(path, {
+      kind,
+      arrowStrokeWidth: 5,
+      arrowLineStyle: 'solid',
+      arrowRoundedEnds: true,
+      arrowPathType: 'curved',
+    })
+    ensureAvnacLayerId(path)
+    canvas.add(path)
+    canvas.setActiveObject(path)
+    canvas.requestRenderAll()
+  }
+
+  function createLineFromGesture(points: GesturePoint[], kind: LineGestureKind) {
+    const canvas = fabricCanvas.value
+    const mod = fabricMod.value
+    if (!canvas || !mod || points.length < 2) return
+    const first = points[0]
+    const last = points[points.length - 1]
+    const direct = Math.hypot(last.x - first.x, last.y - first.y)
+    if (direct < 6) {
+      kind === 'arrow' ? addArrow() : addLine()
+      return
+    }
+
+    const drawn = pathLength(points)
+    const ratio = drawn / Math.max(1, direct)
+    if (ratio > 1.65 && points.length > 8) {
+      createFreehandPath(points, kind)
+      return
+    }
+
+    const paint = canvasStore.selectedPaint
+    const color = bgValueSolidFallback(paint)
+    const strokeW = 6
+    const curveBulge = curveBulgeFromPoints(points)
+    const isCurved = Math.abs(curveBulge) > Math.max(20, direct * 0.08) || ratio > 1.12
+    const head = kind === 'arrow' ? 1 : 0
+    const g = createArrowGroup(mod, first.x, first.y, last.x, last.y, {
+      strokeWidth: strokeW,
+      headFrac: head,
+      color,
+      pathType: isCurved ? 'curved' : 'straight',
+      curveBulge: isCurved ? curveBulge : undefined,
+      roundedEnds: kind === 'line',
+    })
+    setAvnacStroke(g, paint)
+    setAvnacShapeMeta(g, {
+      kind,
+      arrowHead: head,
+      arrowEndpoints: { x1: first.x, y1: first.y, x2: last.x, y2: last.y },
+      arrowStrokeWidth: strokeW,
+      arrowLineStyle: 'solid',
+      arrowRoundedEnds: kind === 'line',
+      arrowPathType: isCurved ? 'curved' : 'straight',
+      arrowCurveBulge: isCurved ? curveBulge : undefined,
+      arrowCurveT: 0.5,
+    })
+    installArrowEndpointControls(g)
+    ensureAvnacLayerId(g)
+    canvas.add(g)
+    canvas.setActiveObject(g)
+    canvas.requestRenderAll()
+  }
+
+  function startLineDrawMode(kind: LineGestureKind) {
+    const canvas = fabricCanvas.value
+    const mod = fabricMod.value
+    if (!canvas || !mod) return
+    cleanupLineDrawMode?.()
+
+    let drawing = false
+    let points: GesturePoint[] = []
+    let preview: import('fabric').Line | null = null
+    const priorSelection = canvas.selection
+    const priorCursor = canvas.defaultCursor
+    canvas.selection = false
+    canvas.defaultCursor = 'crosshair'
+    canvas.discardActiveObject()
+    canvas.requestRenderAll()
+
+    const finish = (commit: boolean) => {
+      canvas.off('mouse:down', onMouseDown)
+      canvas.off('mouse:move', onMouseMove)
+      canvas.off('mouse:up', onMouseUp)
+      window.removeEventListener('keydown', onKeyDown)
+      cleanupLineDrawMode = null
+      canvas.selection = priorSelection
+      canvas.defaultCursor = priorCursor
+      if (preview) {
+        canvas.remove(preview)
+        preview = null
+      }
+      if (commit) createLineFromGesture(points, kind)
+      else canvas.requestRenderAll()
+    }
+
+    const onMouseDown = (eventInfo: any) => {
+      drawing = true
+      points = [pointFromEvent(canvas, eventInfo.e)]
+      preview = new mod.Line([points[0].x, points[0].y, points[0].x, points[0].y], {
+        stroke: bgValueSolidFallback(canvasStore.selectedPaint),
+        strokeWidth: 3,
+        strokeDashArray: [8, 5],
+        selectable: false,
+        evented: false,
+      })
+      canvas.add(preview)
+      canvas.requestRenderAll()
+    }
+
+    const onMouseMove = (eventInfo: any) => {
+      if (!drawing || !preview) return
+      const point = pointFromEvent(canvas, eventInfo.e)
+      const last = points[points.length - 1]
+      if (!last || Math.hypot(point.x - last.x, point.y - last.y) >= 3) points.push(point)
+      preview.set({ x2: point.x, y2: point.y })
+      preview.setCoords()
+      canvas.requestRenderAll()
+    }
+
+    const onMouseUp = (eventInfo: any) => {
+      if (!drawing) return
+      drawing = false
+      points.push(pointFromEvent(canvas, eventInfo.e))
+      finish(true)
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      finish(false)
+    }
+
+    cleanupLineDrawMode = () => finish(false)
+    canvas.on('mouse:down', onMouseDown)
+    canvas.on('mouse:move', onMouseMove)
+    canvas.on('mouse:up', onMouseUp)
+    window.addEventListener('keydown', onKeyDown)
+  }
+
+  function startPenDrawMode() {
+    const canvas = fabricCanvas.value
+    if (!canvas) return
+    cleanupLineDrawMode?.()
+
+    let drawing = false
+    let points: GesturePoint[] = []
+    const priorSelection = canvas.selection
+    const priorCursor = canvas.defaultCursor
+    canvas.selection = false
+    canvas.defaultCursor = 'crosshair'
+    canvas.discardActiveObject()
+    canvas.requestRenderAll()
+
+    const finish = (commit: boolean) => {
+      canvas.off('mouse:down', onMouseDown)
+      canvas.off('mouse:move', onMouseMove)
+      canvas.off('mouse:up', onMouseUp)
+      window.removeEventListener('keydown', onKeyDown)
+      cleanupLineDrawMode = null
+      canvas.selection = priorSelection
+      canvas.defaultCursor = priorCursor
+      if (commit && points.length >= 2) createFreehandPath(points, 'line')
+      else canvas.requestRenderAll()
+    }
+
+    const onMouseDown = (eventInfo: any) => {
+      drawing = true
+      points = [pointFromEvent(canvas, eventInfo.e)]
+    }
+
+    const onMouseMove = (eventInfo: any) => {
+      if (!drawing) return
+      const point = pointFromEvent(canvas, eventInfo.e)
+      const last = points[points.length - 1]
+      if (!last || Math.hypot(point.x - last.x, point.y - last.y) >= 2) {
+        points.push(point)
+        canvas.requestRenderAll()
+      }
+    }
+
+    const onMouseUp = (eventInfo: any) => {
+      if (!drawing) return
+      drawing = false
+      points.push(pointFromEvent(canvas, eventInfo.e))
+      finish(true)
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      finish(false)
+    }
+
+    cleanupLineDrawMode = () => finish(false)
+    canvas.on('mouse:down', onMouseDown)
+    canvas.on('mouse:move', onMouseMove)
+    canvas.on('mouse:up', onMouseUp)
+    window.addEventListener('keydown', onKeyDown)
+  }
+
   async function addImageFromFile(file: File) {
     const canvas = fabricCanvas.value
     const mod = fabricMod.value
@@ -321,6 +575,8 @@ export function useShapeTools(
     addStar,
     addLine,
     addArrow,
+    startLineDrawMode,
+    startPenDrawMode,
     addImageFromFile,
     addImageFromUrl,
     addShapeByKind,

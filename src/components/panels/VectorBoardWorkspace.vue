@@ -190,7 +190,7 @@
 
 <script setup lang="ts">
 import {
-  ref, computed, watch, watchEffect, onMounted, onBeforeUnmount, nextTick,
+  ref, computed, watch, onMounted, onBeforeUnmount, nextTick,
 } from 'vue'
 import {
   applySmoothPlacementHandles,

@@ -177,7 +177,8 @@ function toggleLineHeight() {
   display: flex;
   align-items: center;
   gap: 2px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 .avnac-divider {
   width: 1px;

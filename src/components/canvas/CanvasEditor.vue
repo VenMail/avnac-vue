@@ -1,5 +1,5 @@
 <template>
-  <div ref="viewportRef" class="avnac-editor" tabindex="0" @keydown="onKeyDown">
+  <div ref="viewportRef" class="avnac-editor" tabindex="0" @keydown="onKeyDown" @contextmenu.prevent>
     <!-- Artboard zoom container -->
     <div
       ref="canvasZoomRef"
@@ -40,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, shallowRef, onBeforeUnmount } from 'vue'
 import { useCanvasInit } from '#/composables/useCanvasInit'
 import { useShapeTools } from '#/composables/useShapeTools'
 import { useToolbarSync } from '#/composables/useToolbarSync'
@@ -52,8 +52,14 @@ import { linearGradientForBox } from '#/lib/fabric-linear-gradient'
 import { getAvnacLocked } from '#/lib/avnac-object-lock'
 import { removeActiveObjectFromCanvas } from '#/lib/fabric-remove-selection'
 import { getSceneHandleSizesForArtboard, applySceneHandleSizesToCanvas, applySceneHandleSizesToInteractiveObject } from '#/lib/fabric-selection-chrome'
+import { refreshAvnacLineArrowHandleSizes } from '#/lib/fabric-line-arrow-controls'
 import { getAvnacGroupId } from '#/lib/avnac-shape-meta'
 import { findGroupMembers } from '#/lib/avnac-logical-group'
+import {
+  createAvnacCommandRegistry,
+  type AvnacEditorContext,
+  type AvnacEditorPlugin,
+} from '#/lib/avnac-plugin'
 
 // ────────────────────────────────────────────
 // Props / emits
@@ -64,9 +70,11 @@ const props = withDefaults(defineProps<{
   persistDisplayName?: string
   artboardWidth?: number
   artboardHeight?: number
+  plugins?: AvnacEditorPlugin[]
 }>(), {
   artboardWidth: 4000,
   artboardHeight: 4000,
+  plugins: () => [],
 })
 
 const emit = defineEmits<{
@@ -82,6 +90,9 @@ const viewportRef = ref<HTMLDivElement | null>(null)
 const artboardFrameRef = ref<HTMLDivElement | null>(null)
 const canvasZoomRef = ref<HTMLDivElement | null>(null)
 const elementToolbarRef = ref<HTMLDivElement | null>(null)
+const pluginContext = shallowRef<AvnacEditorContext | null>(null)
+const commands = createAvnacCommandRegistry()
+let pluginCleanups: Array<() => void> = []
 
 // ────────────────────────────────────────────
 // Composables
@@ -155,6 +166,7 @@ function applyFabricZoom() {
       zoomPercent.value,
     )
     applySceneHandleSizesToCanvas(canvas, mod, sizes)
+    refreshAvnacLineArrowHandleSizes(canvas, mod, sizes)
   } else {
     canvas.requestRenderAll()
   }
@@ -181,6 +193,7 @@ watch(() => canvasStore.ready, async (ready) => {
 
   toolbarSync.attachSelectionListeners(canvas)
   persistence.attachPersistenceListeners(canvas)
+  installPlugins(canvas, fabricMod.value!)
 
   // Load initial document if provided
   if (props.initialDocument) {
@@ -207,17 +220,20 @@ watch(() => canvasStore.ready, async (ready) => {
       zoomPercent.value,
     )
     applySceneHandleSizesToInteractiveObject(obj, sizes)
+    refreshAvnacLineArrowHandleSizes(canvas, m, sizes)
   })
 
   // Flat logical-group selection: when a member of a logical group is clicked,
   // promote the selection to an ActiveSelection of all group siblings.
-  canvas.on('selection:created', (evt: any) => {
+  canvas.on('selection:created', () => {
     const mod = fabricMod.value
     if (!mod) return
     const active = canvas.getActiveObject() as any
     if (!active) return
     // Skip if already an ActiveSelection (could be user-drawn marquee)
     if (active instanceof mod.ActiveSelection) return
+
+    if (isSmartObjectChild(active)) return
 
     const groupId = getAvnacGroupId(active)
     if (!groupId) return
@@ -233,12 +249,14 @@ watch(() => canvasStore.ready, async (ready) => {
     canvas.requestRenderAll()
   })
 
-  canvas.on('selection:updated', (evt: any) => {
+  canvas.on('selection:updated', () => {
     const mod = fabricMod.value
     if (!mod) return
     const active = canvas.getActiveObject() as any
     if (!active) return
     if (active instanceof mod.ActiveSelection) return
+
+    if (isSmartObjectChild(active)) return
 
     const groupId = getAvnacGroupId(active)
     if (!groupId) return
@@ -262,6 +280,8 @@ watch(() => canvasStore.ready, async (ready) => {
   canvas.on('mouse:dblclick', (opt: any) => {
     const target = opt.target as any
     if (!target) return
+
+    if (isSmartObjectChild(target)) return
 
     const groupId = getAvnacGroupId(target)
     if (groupId && (target.type === 'textbox' || target.type === 'i-text')) {
@@ -335,6 +355,12 @@ watch(() => canvasStore.ready, async (ready) => {
   emit('ready')
 })
 
+onBeforeUnmount(() => {
+  for (const cleanup of pluginCleanups) cleanup()
+  pluginCleanups = []
+  pluginContext.value = null
+})
+
 // ────────────────────────────────────────────
 // Document load / capture
 // ────────────────────────────────────────────
@@ -390,6 +416,34 @@ function emitChange() {
   const canvas = fabricCanvas.value
   if (!canvas) return
   emit('change', getDocument())
+}
+
+function isSmartObjectChild(obj: unknown): boolean {
+  return !!obj && typeof obj === 'object' && typeof (obj as { avnacSmartObjectId?: unknown }).avnacSmartObjectId === 'string'
+}
+
+function installPlugins(canvas: import('fabric').Canvas, mod: typeof import('fabric')) {
+  for (const cleanup of pluginCleanups) cleanup()
+  pluginCleanups = []
+
+  const ctx: AvnacEditorContext = {
+    canvas,
+    fabric: mod,
+    commands,
+    getArtboard: () => ({
+      width: artboardWRef.value,
+      height: artboardHRef.value,
+    }),
+    requestPersist: () => schedulePersist(canvas),
+    notifyChange: emitChange,
+  }
+
+  pluginContext.value = ctx
+
+  for (const plugin of props.plugins) {
+    const cleanup = plugin.install(ctx)
+    if (cleanup) pluginCleanups.push(cleanup)
+  }
 }
 
 // ────────────────────────────────────────────
@@ -514,6 +568,9 @@ defineExpose({
   fitToViewport,
   shapeTools,
   layerPanel,
+  commands,
+  runCommand: commands.run,
+  pluginContext,
   fabricCanvas,
 })
 </script>

@@ -2,6 +2,7 @@
 // All text widths derive from enclosing shape geometry — never hardcoded constants.
 // Each spec carries group-tag fields so the insertion path can tag Fabric objects.
 import type { AvnacInfographicData } from './avnac-infographic'
+import type { InfographicItem } from './avnac-infographic'
 import type { AvnacGroupRole } from './avnac-shape-meta'
 
 export interface InfographicChildSpec {
@@ -35,6 +36,18 @@ export interface InfographicChildSpec {
 
 function colorAt(scheme: string[], i: number): string {
   return scheme[i % scheme.length] ?? '#4472c4'
+}
+
+function labelFontSize(item: InfographicItem, fallback: number): number {
+  return item.fontSize ?? fallback
+}
+
+function sublabelFontSize(item: InfographicItem, fallback = 10): number {
+  return item.sublabelFontSize ?? fallback
+}
+
+function valueFontSize(item: InfographicItem, fallback = 10): number {
+  return item.valueFontSize ?? fallback
 }
 
 function tag(
@@ -86,7 +99,7 @@ export function renderPyramid(data: AvnacInfographicData, groupId?: string): Inf
         {
           type: 'Textbox', left: tbLeft, top: lblTop, width: tbW, height: 18,
           text: items[i].label,
-          fontSize: items[i].fontSize ?? 12, fontWeight: items[i].fontWeight ?? 'bold',
+          fontSize: labelFontSize(items[i], 12), fontWeight: items[i].fontWeight ?? 'bold',
           textAlign: items[i].align ?? 'center', fill: '#ffffff',
         },
         groupId, 'label', i,
@@ -97,7 +110,7 @@ export function renderPyramid(data: AvnacInfographicData, groupId?: string): Inf
         {
           type: 'Textbox', left: tbLeft, top: y + tierH / 2 + 6, width: tbW, height: 16,
           text: items[i].value!,
-          fontSize: 10, textAlign: 'center', fill: 'rgba(255,255,255,0.85)',
+          fontSize: valueFontSize(items[i]), textAlign: 'center', fill: 'rgba(255,255,255,0.85)',
         },
         groupId, 'value', i,
       ))
@@ -145,7 +158,7 @@ export function renderFunnel(data: AvnacInfographicData, groupId?: string): Info
           type: 'Textbox', left: tbLeft, top: y + tierH / 2 - (hasSub ? 13 : 8),
           width: tbW, height: 18,
           text: items[i].label,
-          fontSize: items[i].fontSize ?? 12, fontWeight: items[i].fontWeight ?? 'bold',
+          fontSize: labelFontSize(items[i], 12), fontWeight: items[i].fontWeight ?? 'bold',
           textAlign: items[i].align ?? 'center', fill: '#ffffff',
         },
         groupId, 'label', i,
@@ -156,7 +169,7 @@ export function renderFunnel(data: AvnacInfographicData, groupId?: string): Info
         {
           type: 'Textbox', left: tbLeft, top: y + tierH / 2 + 6, width: tbW, height: 16,
           text: items[i].sublabel!,
-          fontSize: 10, textAlign: 'center', fill: 'rgba(255,255,255,0.8)',
+          fontSize: sublabelFontSize(items[i]), textAlign: 'center', fill: 'rgba(255,255,255,0.8)',
         },
         groupId, 'sublabel', i,
       ))
@@ -172,6 +185,10 @@ export function renderTimelineH(data: AvnacInfographicData, groupId?: string): I
   const midY = height / 2
   const step = width / (n + 1)
   const pitch = step  // section pitch
+  const markerSize = Math.max(16, Math.min(96, data.options.markerSize ?? 34))
+  const markerR = markerSize / 2
+  const labelGap = Math.max(12, markerR * 0.9)
+  const sublabelGap = Math.max(10, markerR * 0.75)
 
   specs.push(tag(
     { type: 'Rect', left: step * 0.5, top: midY - 1, width: step * n, height: 2, fill: '#cccccc', strokeWidth: 0 },
@@ -185,16 +202,16 @@ export function renderTimelineH(data: AvnacInfographicData, groupId?: string): I
     const tbLeft = cx - tbW / 2
 
     specs.push(tag(
-      { type: 'Circle', left: cx - 12, top: midY - 12, width: 24, height: 24, radius: 12, fill: color, strokeWidth: 0 },
+      { type: 'Circle', left: cx - markerR, top: midY - markerR, width: markerSize, height: markerSize, radius: markerR, fill: color, strokeWidth: 0 },
       groupId, 'shape', i,
     ))
 
     if (data.options.showLabels) {
       specs.push(tag(
         {
-          type: 'Textbox', left: tbLeft, top: midY - 50, width: tbW, height: 30,
+          type: 'Textbox', left: tbLeft, top: midY - markerR - labelGap - 30, width: tbW, height: 30,
           text: items[i].label,
-          fontSize: items[i].fontSize ?? 11, fontWeight: items[i].fontWeight ?? 'bold',
+          fontSize: labelFontSize(items[i], 11), fontWeight: items[i].fontWeight ?? 'bold',
           textAlign: items[i].align ?? 'center', fill: '#262626',
         },
         groupId, 'label', i,
@@ -203,9 +220,9 @@ export function renderTimelineH(data: AvnacInfographicData, groupId?: string): I
     if (items[i].sublabel) {
       specs.push(tag(
         {
-          type: 'Textbox', left: tbLeft, top: midY + 20, width: tbW, height: 30,
+          type: 'Textbox', left: tbLeft, top: midY + markerR + sublabelGap, width: tbW, height: 30,
           text: items[i].sublabel!,
-          fontSize: 10, textAlign: 'center', fill: '#666666',
+          fontSize: sublabelFontSize(items[i]), textAlign: 'center', fill: '#666666',
         },
         groupId, 'sublabel', i,
       ))
@@ -213,9 +230,9 @@ export function renderTimelineH(data: AvnacInfographicData, groupId?: string): I
     if (data.options.showValues && items[i].value) {
       specs.push(tag(
         {
-          type: 'Textbox', left: cx - 12, top: midY - 9, width: 24, height: 18,
+          type: 'Textbox', left: cx - markerR, top: midY - markerR * 0.45, width: markerSize, height: markerR * 0.9,
           text: items[i].value!,
-          fontSize: 10, fontWeight: 'bold', textAlign: 'center', fill: '#ffffff',
+          fontSize: valueFontSize(items[i], Math.max(9, markerSize * 0.28)), fontWeight: 'bold', textAlign: 'center', fill: '#ffffff',
         },
         groupId, 'value', i,
       ))
@@ -230,6 +247,9 @@ export function renderTimelineV(data: AvnacInfographicData, groupId?: string): I
   const specs: InfographicChildSpec[] = []
   const midX = width * 0.35
   const step = height / (n + 1)
+  const markerSize = Math.max(16, Math.min(96, data.options.markerSize ?? 34))
+  const markerR = markerSize / 2
+  const textGap = Math.max(12, markerR * 0.9)
 
   specs.push(tag(
     { type: 'Rect', left: midX - 1, top: step * 0.5, width: 2, height: step * n, fill: '#cccccc', strokeWidth: 0 },
@@ -239,19 +259,20 @@ export function renderTimelineV(data: AvnacInfographicData, groupId?: string): I
   for (let i = 0; i < n; i++) {
     const cy = step * (i + 1)
     const color = items[i].color ?? colorAt(colorScheme, i)
-    const tbW = Math.max(80, width - midX - 24)
+    const textLeft = midX + markerR + textGap
+    const tbW = Math.max(80, width - textLeft - 12)
 
     specs.push(tag(
-      { type: 'Circle', left: midX - 12, top: cy - 12, width: 24, height: 24, radius: 12, fill: color, strokeWidth: 0 },
+      { type: 'Circle', left: midX - markerR, top: cy - markerR, width: markerSize, height: markerSize, radius: markerR, fill: color, strokeWidth: 0 },
       groupId, 'shape', i,
     ))
 
     if (data.options.showLabels) {
       specs.push(tag(
         {
-          type: 'Textbox', left: midX + 20, top: cy - 14, width: tbW, height: 18,
+          type: 'Textbox', left: textLeft, top: cy - 14, width: tbW, height: 18,
           text: items[i].label,
-          fontSize: items[i].fontSize ?? 12, fontWeight: items[i].fontWeight ?? 'bold',
+          fontSize: labelFontSize(items[i], 12), fontWeight: items[i].fontWeight ?? 'bold',
           fill: '#262626',
         },
         groupId, 'label', i,
@@ -260,9 +281,9 @@ export function renderTimelineV(data: AvnacInfographicData, groupId?: string): I
     if (items[i].sublabel) {
       specs.push(tag(
         {
-          type: 'Textbox', left: midX + 20, top: cy + 6, width: tbW, height: 18,
+          type: 'Textbox', left: textLeft, top: cy + 6, width: tbW, height: 18,
           text: items[i].sublabel!,
-          fontSize: 10, fill: '#666666',
+          fontSize: sublabelFontSize(items[i]), fill: '#666666',
         },
         groupId, 'sublabel', i,
       ))
@@ -304,7 +325,7 @@ export function renderChevron(data: AvnacInfographicData, groupId?: string): Inf
         {
           type: 'Textbox', left: tbLeft, top: height / 2 - 12, width: tbW, height: 24,
           text: items[i].label,
-          fontSize: items[i].fontSize ?? 11, fontWeight: items[i].fontWeight ?? 'bold',
+          fontSize: labelFontSize(items[i], 11), fontWeight: items[i].fontWeight ?? 'bold',
           textAlign: items[i].align ?? 'center', fill: '#ffffff',
         },
         groupId, 'label', i,
@@ -339,7 +360,7 @@ export function renderCycle(data: AvnacInfographicData, groupId?: string): Infog
         {
           type: 'Textbox', left: nx - tbW / 2, top: ny - nodeR * 0.4, width: tbW, height: nodeR * 0.8,
           text: items[i].label,
-          fontSize: items[i].fontSize ?? 11, fontWeight: items[i].fontWeight ?? 'bold',
+          fontSize: labelFontSize(items[i], 11), fontWeight: items[i].fontWeight ?? 'bold',
           textAlign: 'center', fill: '#ffffff',
         },
         groupId, 'label', i,
@@ -350,7 +371,7 @@ export function renderCycle(data: AvnacInfographicData, groupId?: string): Infog
         {
           type: 'Textbox', left: nx - tbW / 2, top: ny + nodeR * 0.15, width: tbW, height: 16,
           text: items[i].value!,
-          fontSize: 10, textAlign: 'center', fill: 'rgba(255,255,255,0.85)',
+          fontSize: valueFontSize(items[i]), textAlign: 'center', fill: 'rgba(255,255,255,0.85)',
         },
         groupId, 'value', i,
       ))
@@ -388,7 +409,7 @@ export function renderVenn(data: AvnacInfographicData, groupId?: string): Infogr
         {
           type: 'Textbox', left: x - tbW / 2, top: y - r * 0.6, width: tbW, height: 20,
           text: items[i].label,
-          fontSize: items[i].fontSize ?? 11, fontWeight: items[i].fontWeight ?? 'bold',
+          fontSize: labelFontSize(items[i], 11), fontWeight: items[i].fontWeight ?? 'bold',
           textAlign: 'center', fill: '#262626',
         },
         groupId, 'label', i,
@@ -400,7 +421,7 @@ export function renderVenn(data: AvnacInfographicData, groupId?: string): Infogr
         {
           type: 'Textbox', left: x - tbW / 2, top: y - r * 0.6 + 22, width: tbW, height: 16,
           text: items[i].sublabel!,
-          fontSize: 10, textAlign: 'center', fill: '#555555',
+          fontSize: sublabelFontSize(items[i]), textAlign: 'center', fill: '#555555',
         },
         groupId, 'sublabel', i,
       ))
@@ -459,7 +480,7 @@ export function renderAccordion(data: AvnacInfographicData, groupId?: string): I
         {
           type: 'Textbox', left: textLeft, top: lblTop, width: textW, height: 18,
           text: items[i].label,
-          fontSize: items[i].fontSize ?? 12, fontWeight: items[i].fontWeight ?? 'bold',
+          fontSize: labelFontSize(items[i], 12), fontWeight: items[i].fontWeight ?? 'bold',
           fill: '#ffffff',
           textAlign: items[i].align ?? 'left',
         },
@@ -473,7 +494,7 @@ export function renderAccordion(data: AvnacInfographicData, groupId?: string): I
         {
           type: 'Textbox', left: textLeft, top: y + rowH / 2 + 2, width: textW, height: 16,
           text: items[i].sublabel!,
-          fontSize: 10, fill: 'rgba(255,255,255,0.82)', textAlign: items[i].align ?? 'left',
+          fontSize: sublabelFontSize(items[i]), fill: 'rgba(255,255,255,0.82)', textAlign: items[i].align ?? 'left',
         },
         groupId, 'sublabel', i,
       ))
@@ -507,7 +528,7 @@ export function renderMatrix2x2(data: AvnacInfographicData, groupId?: string): I
         {
           type: 'Textbox', left: x + padX, top: y + padY, width: tbW, height: 20,
           text: item.label,
-          fontSize: item.fontSize ?? 13, fontWeight: item.fontWeight ?? 'bold',
+          fontSize: labelFontSize(item, 13), fontWeight: item.fontWeight ?? 'bold',
           textAlign: item.align ?? 'center', fill: '#262626',
         },
         groupId, 'label', i,
@@ -518,7 +539,7 @@ export function renderMatrix2x2(data: AvnacInfographicData, groupId?: string): I
         {
           type: 'Textbox', left: x + padX, top: y + padY + 22, width: tbW, height: Math.max(30, hh - padY - 28),
           text: item.sublabel,
-          fontSize: 10, textAlign: 'center', fill: '#666666',
+          fontSize: sublabelFontSize(item), textAlign: 'center', fill: '#666666',
         },
         groupId, 'sublabel', i,
       ))

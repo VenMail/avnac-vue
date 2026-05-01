@@ -104,8 +104,8 @@ async function loadSlide(index: number) {
   await loadCanvasGoogleFontsAndRelayout(fabricCanvas, mod as any)
 
   // Start animations
-  const { playSlideAnimations } = await import('#/lib/avnac-animation-runtime')
-  timelineHandle = playSlideAnimations(fabricCanvas)
+  const { hasSlideAnimations, playSlideAnimations } = await import('#/lib/avnac-animation-runtime')
+  timelineHandle = hasSlideAnimations(fabricCanvas) ? playSlideAnimations(fabricCanvas) : null
 }
 
 async function initCanvas() {

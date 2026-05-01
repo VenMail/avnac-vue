@@ -9,20 +9,27 @@
       </button>
     </div>
 
+    <div class="anim-panel__preview-row">
+      <button class="anim-panel__preview-btn" title="Preview all animations on this slide" @click="onPreviewSlide">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Slide
+      </button>
+      <button
+        v-if="canvasStore.hasObjectSelected"
+        class="anim-panel__preview-btn"
+        title="Preview selected object animations"
+        @click="onPreviewSelection"
+      >
+        Selection
+      </button>
+    </div>
+
     <!-- Empty state -->
     <div v-if="!canvasStore.hasObjectSelected" class="anim-panel__empty">
       Select an object to add animations.
     </div>
 
     <template v-else>
-      <!-- Preview button -->
-      <div class="anim-panel__preview-row">
-        <button class="anim-panel__preview-btn" title="Preview animations" @click="onPreview">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          Preview
-        </button>
-      </div>
-
       <!-- Grouped entry list -->
       <div v-for="kind in KINDS" :key="kind" class="anim-panel__group">
         <div class="anim-panel__group-header">
@@ -109,12 +116,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import type { Canvas } from 'fabric'
+import { ref, computed, onBeforeUnmount } from 'vue'
+import type { Canvas, FabricObject } from 'fabric'
 import { useCanvasStore } from '#/stores/canvas'
 import { effectCatalog, EFFECTS_BY_KIND, defaultAnimationEntry } from '#/lib/avnac-animation'
-import type { AnimationKind, AnimationTrigger, AnimationEasing, AvnacAnimationEntry } from '#/lib/avnac-animation'
-import { previewObjectAnimations } from '#/lib/avnac-animation-runtime'
+import type { AnimationKind, AnimationTrigger, AvnacAnimationEntry } from '#/lib/avnac-animation'
+import { previewObjectAnimations, previewSlideAnimations, type TimelineHandle } from '#/lib/avnac-animation-runtime'
 
 const props = defineProps<{ canvas: Canvas | null }>()
 const emit = defineEmits<{ close: [] }>()
@@ -130,8 +137,21 @@ const TRIGGER_LABELS: Record<AnimationTrigger, string> = {
 }
 
 const selectedEntryId = ref<string | null>(null)
+let previewHandle: TimelineHandle | null = null
 
 const entries = computed<AvnacAnimationEntry[]>(() => canvasStore.animationToolbarModel?.entries ?? [])
+
+type AnimationTarget = FabricObject & {
+  avnacAnimations?: AvnacAnimationEntry[]
+  avnacSmartObjectRole?: string
+}
+
+function animationTargets(canvas: Canvas | null): AnimationTarget[] {
+  const active = canvas?.getActiveObject()
+  if (!canvas || !active) return []
+  const objects = 'multiSelectionStacking' in active ? canvas.getActiveObjects() : [active]
+  return objects.filter((obj): obj is AnimationTarget => (obj as AnimationTarget).avnacSmartObjectRole !== 'frame')
+}
 
 function entriesByKind(kind: AnimationKind) {
   return entries.value.filter((e) => e.kind === kind).sort((a, b) => a.order - b.order)
@@ -144,20 +164,37 @@ function effectLabel(key: string): string {
 function writeBack(updated: AvnacAnimationEntry[]) {
   // Persist to fabric object first; store is a derived view.
   const canvas = props.canvas
-  const active = canvas?.getActiveObject()
-  if (active) {
-    ;(active as any).avnacAnimations = updated
-    ;(active as any).set?.('dirty', true)
-    canvas?.fire('object:modified', { target: active } as any)
+  const targets = animationTargets(canvas)
+  for (const target of targets) {
+    target.avnacAnimations = updated
+    target.set?.('dirty', true)
+    canvas?.fire('object:modified', { target } as any)
   }
   canvasStore.animationToolbarModel = { entries: updated }
 }
 
-function onPreview() {
-  const canvas = props.canvas
-  const active = canvas?.getActiveObject()
-  if (canvas && active) previewObjectAnimations(canvas, active as any)
+function stopPreview() {
+  previewHandle?.dispose()
+  previewHandle = null
 }
+
+function onPreviewSelection() {
+  const canvas = props.canvas
+  stopPreview()
+  if (!canvas) return
+  for (const target of animationTargets(canvas)) {
+    previewObjectAnimations(canvas, target)
+  }
+}
+
+function onPreviewSlide() {
+  const canvas = props.canvas
+  stopPreview()
+  if (!canvas) return
+  previewHandle = previewSlideAnimations(canvas)
+}
+
+onBeforeUnmount(stopPreview)
 
 function addEntry(kind: AnimationKind) {
   const maxOrder = entries.value.reduce((m, e) => Math.max(m, e.order), -1)

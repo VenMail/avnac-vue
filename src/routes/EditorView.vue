@@ -3,12 +3,14 @@
     <CanvasEditor
       ref="editorRef"
       :initial-document="initialDocument"
+      :plugins="editorPlugins"
       @change="onDocumentChange"
       @ready="onEditorReady"
     >
       <!-- Floating toolbar slot -->
       <template #toolbar>
         <CanvasElementToolbar
+          :smart-object-selected="smartObjectSelected"
           @paint-change="onPaintChange"
           @text-format-change="onTextFormatChange"
           @shape-paint-change="onShapePaintChange"
@@ -23,6 +25,7 @@
           @delete="onDeleteSelected"
           @open-animation-panel="animationPanelOpen = true"
           @edit-chart-data="onEditChartData"
+          @convert-smart-object="onConvertSmartObject"
         />
         <EditorAnimationPanel
           v-if="animationPanelOpen"
@@ -52,7 +55,7 @@
           />
           <EditorImagesPanel
             :open="activePanel === 'images'"
-            :on-add-image-from-url="(opts) => editorRef?.shapeTools.addImageFromUrl(opts) ?? Promise.resolve(null)"
+            :on-add-image-from-url="onAddImageFromUrl"
             @close="activePanel = null"
           />
           <EditorUploadsPanel
@@ -79,16 +82,6 @@
           <div v-if="activePanel === 'diagrams'" class="avnac-side-panel">
             <DiagramPanel @insert="onInsertDiagram" />
           </div>
-          <VectorBoardWorkspace
-            v-if="activePanel === 'vector-board'"
-            :open="true"
-            board-name="Vector Board"
-            :document="vectorBoardDoc"
-            :on-save="onVectorBoardSave"
-            :on-save-and-place="onVectorBoardSaveAndPlace"
-            @close="activePanel = null"
-            @change="onVectorBoardChange"
-          />
         </div>
       </template>
 
@@ -130,7 +123,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import CanvasEditor from '#/components/canvas/CanvasEditor.vue'
-import VectorBoardWorkspace from '#/components/panels/VectorBoardWorkspace.vue'
 import CanvasElementToolbar from '#/components/toolbar/CanvasElementToolbar.vue'
 import EditorFloatingSidebar from '#/components/panels/EditorFloatingSidebar.vue'
 import EditorLayersPanel from '#/components/panels/EditorLayersPanel.vue'
@@ -154,33 +146,30 @@ import type { FabricShadowUi } from '#/lib/avnac-fabric-shadow'
 import type { TextFormatToolbarValues } from '#/stores/canvas'
 import { useCanvasStore } from '#/stores/canvas'
 import { useChartsStore } from '#/stores/charts'
+import { useInfographicsStore } from '#/stores/infographics'
+import { useDiagramsStore } from '#/stores/diagrams'
 import { exportDocumentsToPptx } from '#/pptx/export'
 import { importPptxFromInput } from '#/pptx/import'
 import type { AvnacInfographicData } from '#/lib/avnac-infographic'
 import type { AvnacDiagramData } from '#/lib/avnac-diagram'
-import type { VectorBoardDocument } from '#/lib/avnac-vector-board-document'
-import { emptyVectorBoardDocument } from '#/lib/avnac-vector-board-document'
+import {
+  createAvnacSmartObjectsPlugin,
+  type AvnacSmartObjectData,
+  type SelectedSmartObjectInfo,
+  type SmartObjectInsertResult,
+} from '#/plugins/smart-objects'
 
 const editorRef = ref<InstanceType<typeof CanvasEditor> | null>(null)
 const initialDocument = ref<AvnacDocumentV1 | undefined>(undefined)
 const activePanel = ref<EditorSidebarPanelId | null>(null)
 const canvasStore = useCanvasStore()
 const chartsStore = useChartsStore()
-const vectorBoardDoc = ref<VectorBoardDocument>(emptyVectorBoardDocument())
+const infographicsStore = useInfographicsStore()
+const diagramsStore = useDiagramsStore()
 const animationPanelOpen = ref(false)
-
-function onVectorBoardChange(doc: VectorBoardDocument) {
-  vectorBoardDoc.value = doc
-}
-
-function onVectorBoardSave(doc: VectorBoardDocument) {
-  vectorBoardDoc.value = doc
-}
-
-function onVectorBoardSaveAndPlace(doc: VectorBoardDocument) {
-  vectorBoardDoc.value = doc
-  activePanel.value = null
-}
+const editorPlugins = [createAvnacSmartObjectsPlugin()]
+const smartObjectSelected = ref(false)
+let suppressSmartStoreRender = false
 
 // Layer panel rows from the layer panel composable
 const layerRows = computed<EditorLayerRow[]>(() => {
@@ -195,8 +184,16 @@ const layerRows = computed<EditorLayerRow[]>(() => {
   }))
 })
 
-function togglePanel(id: EditorSidebarPanelId) {
+async function togglePanel(id: EditorSidebarPanelId) {
+  if (id === 'vector-board') {
+    activePanel.value = null
+    editorRef.value?.shapeTools.startPenDrawMode()
+    return
+  }
   activePanel.value = activePanel.value === id ? null : id
+  if (activePanel.value === 'infographics' || activePanel.value === 'diagrams') {
+    await openSelectedSmartObjectInPanel(activePanel.value)
+  }
 }
 
 function onDocumentChange(_doc: AvnacDocumentV1) {
@@ -204,11 +201,73 @@ function onDocumentChange(_doc: AvnacDocumentV1) {
 }
 
 function onEditorReady() {
-  // Editor mounted
+  attachSmartObjectSelectionSync()
+}
+
+function isInfographicSmartObject(info: SelectedSmartObjectInfo | null): info is SelectedSmartObjectInfo {
+  return info?.kind === 'infographic' && 'template' in info.data.source
+}
+
+function isDiagramSmartObject(info: SelectedSmartObjectInfo | null): info is SelectedSmartObjectInfo {
+  return !!info && (info.kind === 'flowchart' || info.kind === 'organogram') && 'nodes' in info.data.source
+}
+
+async function openSelectedSmartObjectInPanel(panel: 'infographics' | 'diagrams') {
+  const info = await editorRef.value?.runCommand<void, SelectedSmartObjectInfo | null>('smartObjects.getSelected') ?? null
+  suppressSmartStoreRender = true
+  try {
+    if (panel === 'infographics' && isInfographicSmartObject(info)) {
+      infographicsStore.openEditor(info.id, structuredClone(info.data.source as AvnacInfographicData))
+    } else if (panel === 'diagrams' && isDiagramSmartObject(info)) {
+      diagramsStore.openEditor(info.id, structuredClone(info.data.source as AvnacDiagramData))
+    }
+  } finally {
+    queueMicrotask(() => {
+      suppressSmartStoreRender = false
+    })
+  }
+}
+
+function attachSmartObjectSelectionSync() {
+  const canvas = getCanvas()
+  if (!canvas) return
+  const refresh = () => {
+    void refreshSmartObjectSelection()
+  }
+  canvas.on('selection:created', refresh)
+  canvas.on('selection:updated', refresh)
+  canvas.on('selection:cleared', refresh)
+  canvas.on('avnac:smart-object:changed' as never, onSmartObjectChanged as never)
+  refresh()
+}
+
+async function refreshSmartObjectSelection() {
+  const info = await editorRef.value?.runCommand<void, SelectedSmartObjectInfo | null>('smartObjects.getSelected') ?? null
+  smartObjectSelected.value = !!info
+}
+
+function onSmartObjectChanged(event: { id?: string; data?: AvnacSmartObjectData }) {
+  if (!event.id || !event.data) return
+  suppressSmartStoreRender = true
+  try {
+    if (event.id === infographicsStore.editingId && 'items' in event.data.source) {
+      infographicsStore.updateData(structuredClone(event.data.source as AvnacInfographicData))
+    } else if (event.id === diagramsStore.editingId && 'nodes' in event.data.source) {
+      diagramsStore.updateData(structuredClone(event.data.source as AvnacDiagramData))
+    }
+  } finally {
+    queueMicrotask(() => {
+      suppressSmartStoreRender = false
+    })
+  }
 }
 
 // Shape tools delegation
 function onShapePick(kind: string) {
+  if (kind === 'line' || kind === 'arrow') {
+    editorRef.value?.shapeTools.startLineDrawMode(kind)
+    return
+  }
   editorRef.value?.shapeTools.addShapeByKind(kind)
 }
 
@@ -226,6 +285,11 @@ function onAddImage() {
     editorRef.value?.shapeTools.addImageFromFile(file)
   }
   input.click()
+}
+
+async function onAddImageFromUrl(opts: { url: string; origin: 'center'; width: number; height: number }) {
+  const image = await (editorRef.value?.shapeTools.addImageFromUrl(opts) ?? Promise.resolve(null))
+  return image ? true : null
 }
 
 // Paint/toolbar event delegation to fabricCanvas
@@ -263,16 +327,25 @@ function onTextFormatChange(partial: Partial<TextFormatToolbarValues>) {
   if (partial.underline !== undefined) active.set('underline', partial.underline)
   if (partial.textAlign !== undefined) active.set('textAlign', partial.textAlign)
   if (partial.lineHeight !== undefined) active.set('lineHeight', partial.lineHeight)
+  if (canvasStore.textToolbarValues) {
+    canvasStore.textToolbarValues = { ...canvasStore.textToolbarValues, ...partial }
+  }
   if (partial.fillStyle !== undefined) {
     import('#/lib/avnac-fill-paint').then(({ applyBgValueToFill }) => {
       import('fabric').then((mod) => {
         applyBgValueToFill(mod, active, partial.fillStyle!)
         canvas.requestRenderAll()
+        void syncActiveSmartText()
       })
     })
     return
   }
   canvas.requestRenderAll()
+  void syncActiveSmartText()
+}
+
+async function syncActiveSmartText() {
+  await editorRef.value?.runCommand('smartObjects.syncSelectedText')
 }
 
 function onShapePaintChange(v: BgValue) {
@@ -424,6 +497,22 @@ watch(() => chartsStore.renderRev, async () => {
   }).catch((err) => console.warn('[avnac] chart re-render failed', err))
 })
 
+watch(() => infographicsStore.editingData, async (data) => {
+  if (suppressSmartStoreRender || !data || !infographicsStore.editingId) return
+  await editorRef.value?.runCommand('smartObjects.replace', {
+    id: infographicsStore.editingId,
+    data,
+  })
+}, { deep: true })
+
+watch(() => diagramsStore.editingData, async (data) => {
+  if (suppressSmartStoreRender || !data || !diagramsStore.editingId) return
+  await editorRef.value?.runCommand('smartObjects.replace', {
+    id: diagramsStore.editingId,
+    data,
+  })
+}, { deep: true })
+
 function onEditChartData() {
   const canvas = getCanvas()
   if (!canvas) return
@@ -440,6 +529,15 @@ function onDeleteSelected() {
     canvas.requestRenderAll()
     canvasStore.clearSelection()
   })
+}
+
+async function onConvertSmartObject() {
+  const count = await editorRef.value?.runCommand<void, number>('smartObjects.ungroupSelected') ?? 0
+  if (count > 0) {
+    smartObjectSelected.value = false
+    infographicsStore.closeEditor()
+    diagramsStore.closeEditor()
+  }
 }
 
 function onBgChange(v: BgValue) {
@@ -496,46 +594,19 @@ async function onImportPptx() {
   }
 }
 
-// Common helper: pull spec stroke/strokeWidth so Polygon/Rect borders render correctly.
-function strokeProps(s: any) {
-  return {
-    stroke: s.stroke,
-    strokeWidth: s.strokeWidth ?? (s.stroke ? 1 : 0),
-  }
-}
-
-// Insert infographic — delegate to shapeTools on CanvasEditor
-function onInsertInfographic(data: AvnacInfographicData) {
-  const canvas = getCanvas()
-  if (!canvas) return
-  import('#/lib/avnac-infographic-render').then(({ renderInfographic }) => {
-    import('fabric').then((mod) => {
-      const specs = renderInfographic(data)
-      const children: any[] = []
-      for (const s of specs) {
-        if (s.type === 'Rect') {
-          children.push(new (mod as any).Rect({ left: s.left, top: s.top, width: s.width, height: s.height, fill: s.fill ?? '#ccc', rx: s.rx ?? 0, ry: s.ry ?? 0, ...strokeProps(s), selectable: false, evented: false }))
-        } else if (s.type === 'Polygon' && s.points) {
-          children.push(new (mod as any).Polygon(s.points, { fill: s.fill ?? '#ccc', ...strokeProps(s), selectable: false, evented: false }))
-        } else if (s.type === 'Ellipse') {
-          children.push(new (mod as any).Ellipse({ left: s.left, top: s.top, rx: s.rx ?? s.width / 2, ry: s.ry ?? s.height / 2, fill: s.fill ?? '#ccc', ...strokeProps(s), selectable: false, evented: false }))
-        } else if (s.type === 'Circle') {
-          children.push(new (mod as any).Circle({ left: s.left, top: s.top, radius: s.radius ?? 10, fill: s.fill ?? '#ccc', ...strokeProps(s), selectable: false, evented: false }))
-        } else if (s.type === 'Textbox' && s.text) {
-          children.push(new (mod as any).Textbox(s.text, { left: s.left, top: s.top, width: s.width, fontSize: s.fontSize ?? 12, fontWeight: s.fontWeight ?? 'normal', textAlign: s.textAlign ?? 'left', fill: s.fill ?? '#262626', selectable: false, evented: false }))
-        }
-      }
-      const group = new (mod as any).Group(children, {
-        left: 200, top: 200,
-        avnacShape: { kind: 'infographic', template: data.template },
-        avnacGroupKind: 'infographic',
-        avnacInfographic: data,
-      })
-      canvas.add(group)
-      canvas.setActiveObject(group)
-      canvas.requestRenderAll()
+// Insert infographic through the smart-objects plugin.
+async function onInsertInfographic(data: AvnacInfographicData) {
+  const result = await editorRef.value?.runCommand<unknown, SmartObjectInsertResult>(
+    'smartObjects.insertInfographic',
+    { data },
+  )
+  if (result) {
+    suppressSmartStoreRender = true
+    infographicsStore.openEditor(result.id, data)
+    queueMicrotask(() => {
+      suppressSmartStoreRender = false
     })
-  })
+  }
 }
 
 // AI slide generation — load first doc into canvas; multi-slide ignored in standalone view
@@ -551,36 +622,19 @@ async function onTemplateInsert(doc: AvnacDocumentV1) {
   await editorRef.value.setDocument(doc)
 }
 
-// Insert diagram — create a visual group from diagram data
-function onInsertDiagram(data: AvnacDiagramData) {
-  const canvas = getCanvas()
-  if (!canvas) return
-  import('#/lib/avnac-diagram-render').then(({ renderDiagram }) => {
-    import('fabric').then((mod) => {
-      const specs = renderDiagram(data)
-      const children: any[] = []
-      for (const s of specs) {
-        if (s.type === 'Rect') {
-          children.push(new (mod as any).Rect({ left: s.left, top: s.top, width: s.width, height: s.height, fill: s.fill ?? '#4472c4', rx: s.rx ?? 0, ry: s.ry ?? 0, ...strokeProps(s), selectable: false, evented: false }))
-        } else if (s.type === 'Polygon' && s.points) {
-          children.push(new (mod as any).Polygon(s.points, { fill: s.fill ?? '#ccc', ...strokeProps(s), selectable: false, evented: false }))
-        } else if (s.type === 'Textbox' && s.text) {
-          children.push(new (mod as any).Textbox(s.text, { left: s.left, top: s.top, width: s.width, fontSize: s.fontSize ?? 12, fontWeight: s.fontWeight ?? 'bold', textAlign: s.textAlign ?? 'center', fill: s.fill ?? '#ffffff', selectable: false, evented: false }))
-        } else if (s.type === 'Line' && s.x1 !== undefined) {
-          children.push(new (mod as any).Line([s.x1, s.y1!, s.x2!, s.y2!], { stroke: s.stroke ?? '#888', strokeWidth: s.strokeWidth ?? 1.5, selectable: false, evented: false }))
-        }
-      }
-      const group = new (mod as any).Group(children, {
-        left: 150, top: 150,
-        avnacShape: { kind: 'diagram' },
-        avnacGroupKind: 'diagram',
-        avnacDiagram: data,
-      })
-      canvas.add(group)
-      canvas.setActiveObject(group)
-      canvas.requestRenderAll()
+// Insert diagram through the smart-objects plugin.
+async function onInsertDiagram(data: AvnacDiagramData) {
+  const result = await editorRef.value?.runCommand<unknown, SmartObjectInsertResult>(
+    'smartObjects.insertDiagram',
+    { data },
+  )
+  if (result) {
+    suppressSmartStoreRender = true
+    diagramsStore.openEditor(result.id, data)
+    queueMicrotask(() => {
+      suppressSmartStoreRender = false
     })
-  })
+  }
 }
 </script>
 

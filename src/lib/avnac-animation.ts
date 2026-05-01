@@ -66,6 +66,14 @@ export const effectCatalog: Record<string, EffectDef> = {
     kind: 'entry', label: 'Bounce In', defaultDurationMs: 800, defaultEasing: 'easeOut',
     build: () => ({ from: { opacity: 0, scaleX: 0.5, scaleY: 0.5 }, to: { opacity: 1, scaleX: 1, scaleY: 1 } }),
   },
+  textTypewriter: {
+    kind: 'entry', label: 'Typewriter', defaultDurationMs: 900, defaultEasing: 'linear',
+    build: () => ({ from: {}, to: {} }),
+  },
+  textWordReveal: {
+    kind: 'entry', label: 'Word Reveal', defaultDurationMs: 800, defaultEasing: 'easeOut',
+    build: () => ({ from: {}, to: {} }),
+  },
 
   // ── Emphasis ─────────────────────────────────────────────────────────────
   pulse: {
@@ -121,7 +129,7 @@ export const effectCatalog: Record<string, EffectDef> = {
 }
 
 export const EFFECTS_BY_KIND: Record<AnimationKind, string[]> = {
-  entry: ['fadeIn', 'flyInLeft', 'flyInRight', 'flyInTop', 'flyInBottom', 'wipeIn', 'zoomIn', 'growIn', 'bounceIn'],
+  entry: ['fadeIn', 'flyInLeft', 'flyInRight', 'flyInTop', 'flyInBottom', 'wipeIn', 'zoomIn', 'growIn', 'bounceIn', 'textTypewriter', 'textWordReveal'],
   emphasis: ['pulse', 'spin', 'shake', 'grow', 'shrink'],
   exit: ['fadeOut', 'flyOutLeft', 'flyOutRight', 'wipeOut', 'zoomOut', 'shrinkOut'],
 }

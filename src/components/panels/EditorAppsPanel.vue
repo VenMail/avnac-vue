@@ -48,7 +48,7 @@
 
 <script setup lang="ts">
 import { computed, h } from 'vue'
-import type { AvnacDocumentV1 } from '@avnac/lib/avnac-document'
+import type { AvnacDocumentV1 } from '#/lib/avnac-document'
 
 const W = 4000
 const H = 2250

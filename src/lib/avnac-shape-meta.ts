@@ -12,6 +12,7 @@ export type AvnacGroupRole =
   | 'sublabel'
   | 'value'
   | 'decoration'
+  | 'frame'
   | 'arrow-head'
 
 type GroupTagged = FabricObject & {

@@ -18,8 +18,9 @@
       />
     </template>
 
-    <!-- Shape options -->
-    <template v-if="canvasStore.shapeToolbarModel">
+    <template v-else>
+      <!-- Shape options -->
+      <template v-if="canvasStore.shapeToolbarModel">
       <div class="avnac-divider" />
       <PaintPopoverControl
         :value="canvasStore.shapeToolbarModel.paint"
@@ -33,51 +34,51 @@
         :max="canvasStore.shapeToolbarModel.rectCornerRadiusMax ?? 0"
         @change="emit('cornerRadiusChange', $event)"
       />
-    </template>
+      </template>
 
-    <!-- Image corner radius -->
-    <template v-if="canvasStore.imageCornerToolbar">
+      <!-- Image corner radius -->
+      <template v-if="canvasStore.imageCornerToolbar">
       <div class="avnac-divider" />
       <CornerRadiusToolbarControl
         :value="canvasStore.imageCornerToolbar.radius"
         :max="canvasStore.imageCornerToolbar.max"
         @change="emit('imageCornerRadiusChange', $event)"
       />
-    </template>
+      </template>
 
-    <div class="avnac-divider" />
+      <div class="avnac-divider" />
 
-    <!-- Stroke -->
-    <StrokeToolbarPopover
+      <!-- Stroke -->
+      <StrokeToolbarPopover
       :stroke-width-px="canvasStore.selectionOutlineStrokeWidth"
       :stroke-paint="canvasStore.selectionOutlineStrokePaint"
       @stroke-width-change="emit('strokeWidthChange', $event)"
       @stroke-paint-change="emit('strokePaintChange', $event)"
-    />
+      />
 
-    <!-- Blur -->
-    <BlurToolbarControl
+      <!-- Blur -->
+      <BlurToolbarControl
       :blur-pct="canvasStore.selectionBlurPct"
       @change="emit('blurChange', $event)"
-    />
+      />
 
-    <!-- Opacity -->
-    <TransparencyToolbarPopover
+      <!-- Opacity -->
+      <TransparencyToolbarPopover
       :opacity-pct="canvasStore.selectionOpacityPct"
       @change="emit('opacityChange', $event)"
-    />
+      />
 
-    <!-- Shadow -->
-    <ShadowToolbarPopover
+      <!-- Shadow -->
+      <ShadowToolbarPopover
       :value="canvasStore.selectionShadowUi"
       :shadow-active="canvasStore.selectionShadowActive"
       @change="emit('shadowChange', $event)"
-    />
+      />
 
-    <div class="avnac-divider" />
+      <div class="avnac-divider" />
 
-    <!-- Shadow toggle -->
-    <button
+      <!-- Shadow toggle -->
+      <button
       class="avnac-toolbar-btn"
       :class="{ active: canvasStore.selectionShadowActive }"
       title="Toggle shadow"
@@ -87,10 +88,10 @@
         <rect x="3" y="3" width="13" height="13" rx="2"/>
         <rect x="8" y="8" width="13" height="13" rx="2" stroke-opacity="0.4"/>
       </svg>
-    </button>
+      </button>
 
-    <!-- Edit chart data (shown when chart group is selected) -->
-    <template v-if="canvasStore.shapeToolbarModel?.meta?.kind === ('chart' as any)">
+      <!-- Edit chart data (shown when chart group is selected) -->
+      <template v-if="canvasStore.shapeToolbarModel?.meta?.kind === ('chart' as any)">
       <div class="avnac-divider" />
       <button class="avnac-toolbar-btn" title="Edit chart data" @click="emit('editChartData')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -99,10 +100,29 @@
         </svg>
         <span style="font-size:11px;margin-left:2px">Data</span>
       </button>
+      </template>
+
+      <!-- Convert smart object to ordinary shapes -->
+      <template v-if="smartObjectSelected">
+      <div class="avnac-divider" />
+      <button class="avnac-toolbar-btn" title="Convert to shapes" @click="emit('convertSmartObject')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </button>
+      </template>
     </template>
 
     <!-- Animate -->
-    <button class="avnac-toolbar-btn" title="Animations" @click="emit('openAnimationPanel')">
+    <button
+      v-if="!canvasStore.textToolbarValues"
+      class="avnac-toolbar-btn"
+      title="Animations"
+      @click="emit('openAnimationPanel')"
+    >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 2l2.4 4.8 5.3.8-3.8 3.7.9 5.2L12 14l-4.8 2.5.9-5.2L4.3 7.6l5.3-.8z"/>
       </svg>
@@ -136,6 +156,10 @@ import PaintPopoverControl from '#/components/shared/PaintPopoverControl.vue'
 
 const canvasStore = useCanvasStore()
 
+defineProps<{
+  smartObjectSelected?: boolean
+}>()
+
 const showPaint = computed(() => !canvasStore.textToolbarValues && !canvasStore.shapeToolbarModel)
 
 const emit = defineEmits<{
@@ -152,6 +176,7 @@ const emit = defineEmits<{
   shadowToggle: []
   openAnimationPanel: []
   editChartData: []
+  convertSmartObject: []
   delete: []
 }>()
 </script>

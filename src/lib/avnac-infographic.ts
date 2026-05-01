@@ -10,6 +10,8 @@ export interface InfographicItem {
   value?: string
   color?: string
   fontSize?: number
+  sublabelFontSize?: number
+  valueFontSize?: number
   fontWeight?: string
   align?: 'left' | 'center' | 'right'
 }
@@ -23,6 +25,7 @@ export interface AvnacInfographicData {
     colorScheme: string[]
     showValues: boolean
     showLabels: boolean
+    markerSize?: number
   }
 }
 
@@ -88,6 +91,7 @@ export function defaultInfographicData(template: InfographicTemplate): AvnacInfo
       colorScheme: DEFAULT_COLORS.slice(0, items.length),
       showValues: true,
       showLabels: true,
+      markerSize: template === 'timeline-h' || template === 'timeline-v' ? 34 : undefined,
     },
   }
 }

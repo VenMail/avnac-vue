@@ -1,5 +1,5 @@
 <template>
-  <div ref="viewportRef" class="avnac-editor" tabindex="0" @keydown="onKeyDown" @contextmenu.prevent>
+  <div ref="viewportRef" class="avnac-editor" tabindex="0" @keydown="onKeyDown" @pointerdown.capture="refreshCanvasOffset" @contextmenu.prevent>
     <!-- Artboard zoom container -->
     <div
       ref="canvasZoomRef"
@@ -158,6 +158,7 @@ function applyFabricZoom() {
   const h = Math.round(artboardHRef.value * scale)
   canvas.setDimensions({ width: w, height: h })
   canvas.setViewportTransform([scale, 0, 0, scale, 0, 0])
+  canvas.calcOffset()
   if (mod) {
     // Re-compute handle sizes so corners/rotate handles stay ~11px on screen
     // regardless of zoom level (handles are in artboard/scene coordinates).
@@ -170,6 +171,10 @@ function applyFabricZoom() {
   } else {
     canvas.requestRenderAll()
   }
+}
+
+function refreshCanvasOffset() {
+  fabricCanvas.value?.calcOffset()
 }
 
 watch(zoomPercent, applyFabricZoom)
@@ -397,6 +402,7 @@ async function loadDocument(doc: AvnacDocumentV1) {
   }
 
   canvas.requestRenderAll()
+  canvas.calcOffset()
 }
 
 function getDocument(): AvnacDocumentV1 {
@@ -452,14 +458,15 @@ function installPlugins(canvas: import('fabric').Canvas, mod: typeof import('fab
 function fitToViewport() {
   const viewport = viewportRef.value
   if (!viewport) return
-  const vw = viewport.clientWidth - 80
-  const vh = viewport.clientHeight - 120
+  const vw = viewport.clientWidth - 96
+  const vh = viewport.clientHeight - 180
   const scaleX = vw / artboardWRef.value
   const scaleY = vh / artboardHRef.value
   const scale = Math.min(scaleX, scaleY, 1)
   canvasStore.zoomPercent = Math.round(scale * 100)
   // Always apply even if zoomPercent didn't change (watch only fires on value change)
   applyFabricZoom()
+  fabricCanvas.value?.calcOffset()
 }
 
 function setZoom(pct: number) {

@@ -24,9 +24,8 @@ withDefaults(defineProps<{ ariaLabel?: string }>(), { ariaLabel: 'Toolbar' })
   border-radius: 999px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.1);
   backdrop-filter: blur(8px);
-  max-width: min(100vw - 2rem, 720px);
-  overflow-x: auto;
-  overflow-y: visible;
+  max-width: min(100vw - 2rem, 900px);
+  overflow: visible;
   pointer-events: auto;
 }
 .avnac-floating-toolbar::-webkit-scrollbar {

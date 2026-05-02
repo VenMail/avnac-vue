@@ -198,7 +198,7 @@ export function useToolbarSync(
     const targets = canvas.getActiveObjects()
     const obj = canvas.getActiveObject()
     if (targets.length !== 1 || !obj) return
-    if (getAvnacGroupKind(obj) !== 'chart') return
+    if (getAvnacGroupKind(obj) !== 'chart' && !(obj as { avnacChart?: unknown }).avnacChart) return
     // syncShapeToolbar cleared shapeToolbarModel for chart objects (not in shapeBarKind list).
     // Set a synthetic model so CanvasElementToolbar shows "Edit data" button.
     canvasStore.shapeToolbarModel = {

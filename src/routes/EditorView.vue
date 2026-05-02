@@ -78,7 +78,7 @@
             @template-insert="onTemplateInsert"
           />
           <div v-if="activePanel === 'charts'" class="avnac-side-panel">
-            <ChartDataPanel />
+            <ChartDataPanel @insert="onInsertChart" />
           </div>
           <div v-if="activePanel === 'infographics'" class="avnac-side-panel">
             <InfographicPanel @insert="onInsertInfographic" />
@@ -151,6 +151,9 @@ import { useInfographicsStore } from '#/stores/infographics'
 import { useDiagramsStore } from '#/stores/diagrams'
 import { exportDocumentsToPptx } from '#/pptx/export'
 import { importPptxFromInput } from '#/pptx/import'
+import { ensureGoogleFontFamilyReady } from '#/lib/load-google-font'
+import type { AvnacChartData } from '#/lib/avnac-chart-data'
+import { ensureAvnacLayerId } from '#/lib/ensure-avnac-layer-id'
 import type { AvnacInfographicData } from '#/lib/avnac-infographic'
 import type { AvnacDiagramData } from '#/lib/avnac-diagram'
 import {
@@ -325,7 +328,14 @@ function onTextFormatChange(partial: Partial<TextFormatToolbarValues>) {
   const active = canvas.getActiveObject() as any
   if (!active) return
 
-  if (partial.fontFamily !== undefined) active.set('fontFamily', partial.fontFamily)
+  if (partial.fontFamily !== undefined) {
+    active.set('fontFamily', partial.fontFamily)
+    void ensureGoogleFontFamilyReady(partial.fontFamily).then(() => {
+      active.initDimensions?.()
+      active.setCoords?.()
+      canvas.requestRenderAll()
+    })
+  }
   if (partial.fontSize !== undefined) active.set('fontSize', partial.fontSize)
   if (partial.bold !== undefined) active.set('fontWeight', partial.bold ? 'bold' : 'normal')
   if (partial.italic !== undefined) active.set('fontStyle', partial.italic ? 'italic' : 'normal')
@@ -345,6 +355,8 @@ function onTextFormatChange(partial: Partial<TextFormatToolbarValues>) {
     })
     return
   }
+  active.initDimensions?.()
+  active.setCoords?.()
   canvas.requestRenderAll()
   void syncActiveSmartText()
 }
@@ -473,6 +485,38 @@ function onShadowToggle() {
       canvasStore.selectionShadowActive = newActive
     })
   })
+}
+
+async function onInsertChart(data: AvnacChartData) {
+  const canvas = getCanvas()
+  if (!canvas) return
+  const doc = editorRef.value?.getDocument()
+  const artW = doc?.artboard.width ?? 4000
+  const artH = doc?.artboard.height ?? 2250
+  const targetW = Math.min(1500, artW * 0.46)
+  const targetH = Math.min(880, artH * 0.46)
+  const [{ FabricImage }, { renderChartToDataUrl }] = await Promise.all([
+    import('fabric'),
+    import('#/composables/useChartRenderer'),
+  ])
+  const url = await renderChartToDataUrl(data, Math.round(targetW), Math.round(targetH))
+  const img = await FabricImage.fromURL(url, { crossOrigin: 'anonymous' })
+  img.set({
+    left: artW / 2,
+    top: artH / 2,
+    originX: 'center',
+    originY: 'center',
+    scaleX: targetW / (img.width ?? targetW),
+    scaleY: targetH / (img.height ?? targetH),
+    avnacChart: structuredClone(data),
+    avnacGroupKind: 'chart',
+    avnacLayerName: 'Chart',
+  } as any)
+  ensureAvnacLayerId(img)
+  canvas.add(img)
+  canvas.setActiveObject(img)
+  canvas.requestRenderAll()
+  activePanel.value = null
 }
 
 // Re-render active chart image when user saves edits in the chart data dialog.

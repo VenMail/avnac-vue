@@ -18,6 +18,9 @@
           @image-corner-radius-change="onImageCornerRadiusChange"
           @image-mask-change="onImageMaskChange"
           @crop-image="onCropImage"
+          @line-path-type-change="onLinePathTypeChange"
+          @line-arrow-head-change="onLineArrowHeadChange"
+          @line-style-change="onLineStyleChange"
           @stroke-width-change="onStrokeWidthChange"
           @stroke-paint-change="onStrokePaintChange"
           @blur-change="onBlurChange"
@@ -44,6 +47,7 @@
             :active-panel="activePanel"
             @select-panel="togglePanel"
             @insert-text="onAddText"
+            @insert-image="onAddImage"
             @insert-shape="onShapePick"
             @insert-line="onLinePick"
             @start-pen="editorRef?.shapeTools.startPenDrawMode()"
@@ -81,7 +85,7 @@
             @template-insert="onTemplateInsert"
           />
           <div v-if="activePanel === 'charts'" class="avnac-side-panel">
-            <ChartDataPanel @insert="onInsertChart" />
+            <ChartDataPanel @insert="onInsertChart" @done="activePanel = null" />
           </div>
           <div v-if="activePanel === 'infographics'" class="avnac-side-panel">
             <InfographicPanel @insert="onInsertInfographic" />
@@ -163,6 +167,9 @@ import { importPptxFromInput } from '#/pptx/import'
 import { applyTextFormatChange } from '#/lib/apply-text-format'
 import { applyFabricImageMask, type ImageMaskKind } from '#/lib/fabric-image-mask'
 import { applyFabricImageSourceCrop, getFabricImageSourceCrop } from '#/lib/avnac-fabric-image-crop'
+import { layoutArrowGroup, arrowDisplayColor } from '#/lib/avnac-stroke-arrow'
+import { getAvnacShapeMeta, setAvnacShapeMeta, type ArrowLineStyle, type ArrowPathType } from '#/lib/avnac-shape-meta'
+import { getAvnacStroke } from '#/lib/avnac-fill-paint'
 import type { AvnacChartData } from '#/lib/avnac-chart-data'
 import { ensureAvnacLayerId } from '#/lib/ensure-avnac-layer-id'
 import type { AvnacInfographicData } from '#/lib/avnac-infographic'
@@ -323,6 +330,12 @@ function getCanvas() {
   return (fc as any).value ?? (fc as any) ?? null
 }
 
+function commitObjectModified(canvas: any, obj: any) {
+  obj?.set?.('dirty', true)
+  obj?.setCoords?.()
+  canvas.fire?.('object:modified', { target: obj })
+}
+
 function onPaintChange(v: BgValue) {
   const canvas = getCanvas()
   if (!canvas) return
@@ -333,6 +346,7 @@ function onPaintChange(v: BgValue) {
       applyBgValueToFill(mod, active, v)
       canvas.requestRenderAll()
       canvasStore.selectedPaint = v
+      commitObjectModified(canvas, active)
     })
   })
 }
@@ -366,6 +380,7 @@ function onCornerRadiusChange(v: number) {
   import('#/lib/fabric-corner-radius').then(({ setSceneCornerRadiusOnRect }) => {
     setSceneCornerRadiusOnRect(active, v)
     canvas.requestRenderAll()
+    commitObjectModified(canvas, active)
   })
 }
 
@@ -378,6 +393,7 @@ function onImageCornerRadiusChange(v: number) {
     import('fabric').then((mod) => {
       setSceneCornerRadiusOnImage(active, v, mod)
       canvas.requestRenderAll()
+      commitObjectModified(canvas, active)
     })
   })
 }
@@ -391,6 +407,7 @@ function onImageMaskChange(kind: ImageMaskKind) {
     if (!(active instanceof mod.FabricImage)) return
     applyFabricImageMask(active, mod, kind)
     canvas.requestRenderAll()
+    commitObjectModified(canvas, active)
   })
 }
 
@@ -414,8 +431,58 @@ function onApplyImageCrop(rect: { cropX: number; cropY: number; width: number; h
     const radius = canvasStore.imageCornerToolbar?.radius ?? 0
     applyFabricImageSourceCrop(active, rect, mod, radius)
     canvas.requestRenderAll()
+    commitObjectModified(canvas, active)
   })
   cropModalOpen.value = false
+}
+
+function updateActiveLine(partial: {
+  arrowPathType?: ArrowPathType
+  arrowHead?: number
+  arrowLineStyle?: ArrowLineStyle
+}) {
+  const canvas = getCanvas()
+  const active = canvas?.getActiveObject() as any
+  if (!canvas || !active) return
+  import('fabric').then((mod) => {
+    if (!(active instanceof mod.Group)) return
+    const meta = getAvnacShapeMeta(active)
+    if (!meta?.arrowEndpoints || (meta.kind !== 'line' && meta.kind !== 'arrow')) return
+    const nextHead = partial.arrowHead ?? (meta.kind === 'arrow' ? (meta.arrowHead ?? 1) : 0)
+    const nextMeta = {
+      ...meta,
+      ...partial,
+      kind: nextHead > 0 ? 'arrow' as const : 'line' as const,
+      arrowHead: nextHead,
+    }
+    const stroke = getAvnacStroke(active)
+    const color = stroke?.type === 'solid' ? stroke.color : arrowDisplayColor(active)
+    layoutArrowGroup(active, meta.arrowEndpoints.x1, meta.arrowEndpoints.y1, meta.arrowEndpoints.x2, meta.arrowEndpoints.y2, {
+      strokeWidth: nextMeta.arrowStrokeWidth ?? 6,
+      headFrac: nextHead,
+      color,
+      lineStyle: nextMeta.arrowLineStyle,
+      roundedEnds: nextMeta.arrowRoundedEnds,
+      pathType: nextMeta.arrowPathType,
+      curveBulge: nextMeta.arrowCurveBulge,
+      curveT: nextMeta.arrowCurveT,
+    })
+    setAvnacShapeMeta(active, nextMeta)
+    canvas.requestRenderAll()
+    commitObjectModified(canvas, active)
+  })
+}
+
+function onLinePathTypeChange(v: ArrowPathType) {
+  updateActiveLine({ arrowPathType: v })
+}
+
+function onLineArrowHeadChange(v: 'none' | 'arrow') {
+  updateActiveLine({ arrowHead: v === 'arrow' ? 1 : 0 })
+}
+
+function onLineStyleChange(v: ArrowLineStyle) {
+  updateActiveLine({ arrowLineStyle: v })
 }
 
 function onStrokeWidthChange(v: number) {
@@ -428,6 +495,7 @@ function onStrokeWidthChange(v: number) {
     o.set({ strokeWidth: v })
     o.set('dirty', true)
     o.setCoords()
+    commitObjectModified(canvas, o)
   }
   canvas.requestRenderAll()
   canvasStore.selectionOutlineStrokeWidth = v
@@ -443,6 +511,7 @@ function onStrokePaintChange(v: BgValue) {
     import('fabric').then((mod) => {
       for (const o of targets) {
         applyBgValueToStroke(mod, o, v)
+        commitObjectModified(canvas, o)
       }
       canvas.requestRenderAll()
       canvasStore.selectionOutlineStrokePaint = v
@@ -460,10 +529,12 @@ function onBlurChange(v: number) {
     for (const o of canvas.getActiveObjects()) {
       o.set({ avnacBlur: clamped } as any)
       o.set('dirty', true)
+      commitObjectModified(canvas, o)
     }
   } else {
     active.set({ avnacBlur: clamped } as any)
     active.set('dirty', true)
+    commitObjectModified(canvas, active)
   }
   canvas.requestRenderAll()
   canvasStore.selectionBlurPct = v
@@ -477,6 +548,7 @@ function onOpacityChange(v: number) {
   active.set('opacity', v / 100)
   canvas.requestRenderAll()
   canvasStore.selectionOpacityPct = v
+  commitObjectModified(canvas, active)
 }
 
 function onShadowChange(v: FabricShadowUi) {
@@ -488,7 +560,10 @@ function onShadowChange(v: FabricShadowUi) {
     import('fabric').then((mod) => {
       const sh = buildFabricShadow(mod, v)
       const targets = 'multiSelectionStacking' in active ? canvas.getActiveObjects() : [active]
-      for (const o of targets) o.set('shadow', sh)
+      for (const o of targets) {
+        o.set('shadow', sh)
+        commitObjectModified(canvas, o)
+      }
       canvas.requestRenderAll()
       canvasStore.selectionShadowUi = v
     })
@@ -505,7 +580,10 @@ function onShadowToggle() {
     import('fabric').then((mod) => {
       const sh = newActive ? buildFabricShadow(mod, canvasStore.selectionShadowUi) : null
       const targets = 'multiSelectionStacking' in active ? canvas.getActiveObjects() : [active]
-      for (const o of targets) o.set('shadow', sh)
+      for (const o of targets) {
+        o.set('shadow', sh)
+        commitObjectModified(canvas, o)
+      }
       canvas.requestRenderAll()
       canvasStore.selectionShadowActive = newActive
     })
@@ -575,18 +653,16 @@ watch(() => chartsStore.renderRev, async () => {
   const h = (active.height ?? 300) * (active.scaleY ?? 1)
   const { renderChartToDataUrl } = await import('#/composables/useChartRenderer')
   const url = await renderChartToDataUrl(data, Math.max(200, w), Math.max(150, h))
-  await new Promise<void>((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => {
-      ;(active as any).setSrc?.(url, () => {
-        active.set('dirty', true)
-        canvas.requestRenderAll()
-        resolve()
-      })
-    }
-    img.onerror = reject
-    img.src = url
-  }).catch((err) => console.warn('[avnac] chart re-render failed', err))
+  try {
+    await active.setSrc?.(url, { crossOrigin: 'anonymous' })
+  } catch (err) {
+    console.warn('[avnac] chart re-render failed', err)
+    active.set?.('src', url)
+  }
+  active.set?.('dirty', true)
+  active.setCoords?.()
+  canvas.requestRenderAll()
+  commitObjectModified(canvas, active)
 })
 
 watch(() => infographicsStore.editingData, async (data) => {

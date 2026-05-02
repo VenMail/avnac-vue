@@ -21,17 +21,23 @@
       </button>
     </div>
 
-    <div class="flex flex-1 flex-col gap-3 overflow-y-auto p-3">
+    <div
+      class="flex flex-1 flex-col gap-3 overflow-y-auto p-3"
+      @dragover.prevent="isDragging = true"
+      @dragleave.prevent="isDragging = false"
+      @drop.prevent="onDrop"
+    >
       <button
         type="button"
-        class="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-black/[0.15] bg-neutral-50 px-4 py-5 text-[13px] font-medium text-neutral-700 hover:border-black/[0.25] hover:bg-neutral-100"
+        class="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-5 text-[13px] font-medium text-neutral-700 hover:border-black/[0.25] hover:bg-neutral-100"
+        :class="isDragging ? 'border-[var(--accent)] bg-[var(--accent-subtle)]' : 'border-black/[0.15] bg-neutral-50'"
         @click="pickFile"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
           <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
           <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
         </svg>
-        Upload from device
+        Upload or drop image
       </button>
 
       <p class="text-center text-[11px] text-neutral-400">
@@ -42,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps<{
   open: boolean
@@ -52,6 +58,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ (e: 'close'): void }>()
+const isDragging = ref(false)
 
 const panelStyle = computed(() => ({
   left: props.panelLeft ?? '4rem',
@@ -64,11 +71,19 @@ function pickFile() {
   input.accept = 'image/*'
   input.multiple = false
   input.onchange = () => {
-    const file = input.files?.[0]
-    if (!file) return
-    props.onAddImageFromFile?.(file)
-    emit('close')
+    addFile(input.files?.[0])
   }
   input.click()
+}
+
+function addFile(file: File | null | undefined) {
+  if (!file || !file.type.startsWith('image/')) return
+  props.onAddImageFromFile?.(file)
+  emit('close')
+}
+
+function onDrop(event: DragEvent) {
+  isDragging.value = false
+  addFile(event.dataTransfer?.files?.[0])
 }
 </script>

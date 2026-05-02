@@ -410,7 +410,7 @@ export function useShapeTools(
 
     const drawn = pathLength(points)
     const ratio = drawn / Math.max(1, direct)
-    if (ratio > 1.65 && points.length > 8) {
+    if (kind === 'curved-line' && ratio > 1.65 && points.length > 8) {
       createFreehandPath(points, kind)
       return
     }
@@ -420,7 +420,7 @@ export function useShapeTools(
     const strokeW = 6
     const curveBulge = curveBulgeFromPoints(points)
     const forceCurved = kind === 'curved-line'
-    const isCurved = forceCurved || Math.abs(curveBulge) > Math.max(20, direct * 0.08) || ratio > 1.12
+    const isCurved = forceCurved
     const effectiveBulge = forceCurved && Math.abs(curveBulge) < Math.max(20, direct * 0.08)
       ? -Math.min(direct * 0.3, 220)
       : curveBulge

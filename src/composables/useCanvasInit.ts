@@ -5,6 +5,9 @@ import { installFabricSelectionChrome, attachFabricHoverOutline } from '#/lib/fa
 import { useCanvasStore } from '#/stores/canvas'
 import { useHistoryStore } from '#/stores/history'
 import { captureAvnacDocument, OBJECT_SERIAL_KEYS } from '#/lib/avnac-document'
+import { linearGradientForBox } from '#/lib/fabric-linear-gradient'
+import { getAvnacShapeMeta, isAvnacStrokeLineLike } from '#/lib/avnac-shape-meta'
+import { installArrowEndpointControls } from '#/lib/fabric-line-arrow-controls'
 
 export function useCanvasInit(
   canvasEl: { value: HTMLCanvasElement | null },
@@ -19,6 +22,7 @@ export function useCanvasInit(
 
   let disposed = false
   let autosaveTimer: ReturnType<typeof setTimeout> | null = null
+  let lastHistoryJson = ''
 
   async function initCanvas() {
     const el = canvasEl.value
@@ -77,7 +81,7 @@ export function useCanvasInit(
       h: artboardHRef.value,
       bgValue: canvasStore.bgValue,
     })
-    historyStore.init(initialDoc)
+    resetHistory(initialDoc)
 
     // Track mutations → history
     canvas.on('object:modified', () => {
@@ -99,37 +103,90 @@ export function useCanvasInit(
     canvasStore.zoomPercent = 100
   }
 
+  function captureCurrentDocument(canvas: Canvas) {
+    return captureAvnacDocument(canvas, {
+      w: artboardWRef.value,
+      h: artboardHRef.value,
+      bgValue: canvasStore.bgValue,
+    })
+  }
+
+  function pushHistoryDocument(doc: ReturnType<typeof captureAvnacDocument>) {
+    const json = JSON.stringify(doc)
+    if (json === lastHistoryJson) return
+    lastHistoryJson = json
+    historyStore.push(doc)
+  }
+
+  function resetHistory(doc: ReturnType<typeof captureAvnacDocument>) {
+    if (autosaveTimer) {
+      clearTimeout(autosaveTimer)
+      autosaveTimer = null
+    }
+    lastHistoryJson = JSON.stringify(doc)
+    historyStore.init(structuredClone(doc))
+  }
+
+  async function runWithoutHistory<T>(fn: () => T | Promise<T>): Promise<T> {
+    if (autosaveTimer) {
+      clearTimeout(autosaveTimer)
+      autosaveTimer = null
+    }
+    const wasApplying = historyStore.applying
+    historyStore.applying = true
+    try {
+      return await fn()
+    } finally {
+      historyStore.applying = wasApplying
+    }
+  }
+
   function schedulePersist(canvas: Canvas) {
     if (autosaveTimer) clearTimeout(autosaveTimer)
     autosaveTimer = setTimeout(() => {
-      const doc = captureAvnacDocument(canvas, {
-        w: artboardWRef.value,
-        h: artboardHRef.value,
-        bgValue: canvasStore.bgValue,
-      })
-      historyStore.push(doc)
+      pushHistoryDocument(captureCurrentDocument(canvas))
     }, 300)
   }
 
-  function applyDocument(doc: ReturnType<typeof captureAvnacDocument>) {
+  async function applyDocument(doc: ReturnType<typeof captureAvnacDocument>) {
     const canvas = fabricCanvas.value
     const mod = fabricMod.value
     if (!canvas || !mod) return
 
-    historyStore.applying = true
-    canvas.clear()
+    await runWithoutHistory(async () => {
+      canvas.clear()
 
-    // Restore background
-    canvasStore.bgValue = doc.bg
+      canvasStore.bgValue = doc.bg
+      artboardWRef.value = doc.artboard.width
+      artboardHRef.value = doc.artboard.height
+      if (doc.bg.type === 'solid') {
+        canvas.backgroundColor = doc.bg.color
+      } else {
+        canvas.backgroundColor = linearGradientForBox(
+          mod,
+          doc.bg.stops,
+          doc.bg.angle,
+          doc.artboard.width,
+          doc.artboard.height,
+        )
+      }
 
-    // Restore objects
-    void mod.util.enlivenObjects(
-      (doc.fabric as { objects?: unknown[] }).objects ?? [],
-    ).then((objects) => {
+      const objects = await mod.util.enlivenObjects(
+        (doc.fabric as { objects?: unknown[] }).objects ?? [],
+      )
       objects.forEach((o) => canvas.add(o as FabricObject))
+      objects.forEach((o) => restoreObjectControls(o as FabricObject))
       canvas.requestRenderAll()
-      historyStore.applying = false
     })
+  }
+
+  function restoreObjectControls(obj: FabricObject) {
+    const mod = fabricMod.value
+    if (!mod) return
+    const meta = getAvnacShapeMeta(obj)
+    if (meta && isAvnacStrokeLineLike(meta) && obj instanceof mod.Group) {
+      installArrowEndpointControls(obj)
+    }
   }
 
   function undo() {
@@ -164,5 +221,7 @@ export function useCanvasInit(
     redo,
     applyDocument,
     schedulePersist,
+    resetHistory,
+    runWithoutHistory,
   }
 }

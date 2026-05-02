@@ -11,7 +11,7 @@
         <input
           class="cell-input"
           :value="s.name"
-          @change="onSeriesName(si, ($event.target as HTMLInputElement).value)"
+          @input="onSeriesName(si, ($event.target as HTMLInputElement).value)"
         />
         <button class="del-btn" title="Remove series" @click="removeSeries(si)">×</button>
       </div>
@@ -29,7 +29,7 @@
           class="cell-input"
           :value="label"
           @focus="focusCell = { row: ri, col: -1 }"
-          @change="onLabelChange(ri, ($event.target as HTMLInputElement).value)"
+          @input="onLabelChange(ri, ($event.target as HTMLInputElement).value)"
         />
         <button class="del-btn" title="Remove row" @click="removeRow(ri)">×</button>
       </div>
@@ -43,7 +43,7 @@
           class="cell-input numeric"
           :value="s.data[ri] ?? 0"
           @focus="focusCell = { row: ri, col: si }"
-          @change="onValueChange(ri, si, ($event.target as HTMLInputElement).value)"
+          @input="onValueChange(ri, si, ($event.target as HTMLInputElement).value)"
         />
       </div>
     </div>

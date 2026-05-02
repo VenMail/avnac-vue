@@ -6,7 +6,7 @@
         @update:value="store.updateChartData($event)"
       />
       <div class="panel-actions">
-        <button class="apply-btn secondary" @click="store.closeChartEditor()">Done</button>
+        <button class="apply-btn secondary" @click="finishEditing">Done</button>
       </div>
     </template>
     <template v-else>
@@ -28,8 +28,16 @@ import ChartTypeSelector from './ChartTypeSelector.vue'
 import { defaultChartData, type AvnacChartData, type ChartType } from '#/lib/avnac-chart-data'
 
 const store = useChartsStore()
-const emit = defineEmits<{ insert: [data: AvnacChartData] }>()
+const emit = defineEmits<{
+  insert: [data: AvnacChartData]
+  done: []
+}>()
 const selectedType = ref<ChartType>('bar')
+
+function finishEditing() {
+  store.closeChartEditor()
+  emit('done')
+}
 </script>
 
 <style scoped>

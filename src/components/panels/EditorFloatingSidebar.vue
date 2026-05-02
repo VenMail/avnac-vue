@@ -7,6 +7,13 @@
     <div class="avnac-sidebar-group">
       <ShapesPopover @pick="emit('insertShape', $event)" />
       <button class="avnac-sidebar-btn avnac-sidebar-btn--text" title="Text box" @click="emit('insertText')">T</button>
+      <button class="avnac-sidebar-btn" title="Add image" @click="emit('insertImage')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+      </button>
       <div ref="lineRootRef" class="avnac-line-tool">
         <button
           class="avnac-sidebar-btn"
@@ -84,6 +91,7 @@ defineProps<{
 const emit = defineEmits<{
   selectPanel: [id: EditorSidebarPanelId]
   insertText: []
+  insertImage: []
   insertShape: [kind: string]
   insertLine: [kind: 'line' | 'curved-line' | 'connector']
   startPen: []

@@ -68,5 +68,6 @@ export async function applyTextFormatChange(
   active.setCoords()
   active.dirty = true
   canvas.requestRenderAll()
+  canvas.fire('object:modified', { target: active })
   return true
 }

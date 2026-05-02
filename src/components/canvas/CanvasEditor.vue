@@ -110,6 +110,8 @@ const {
   undo,
   redo,
   schedulePersist,
+  resetHistory,
+  runWithoutHistory,
 } = useCanvasInit(canvasElRef)
 
 // Set initial artboard size
@@ -379,6 +381,8 @@ async function loadDocument(doc: AvnacDocumentV1) {
   const mod = fabricMod.value
   if (!canvas || !mod) return
 
+  suppressChangeEmit = true
+  await runWithoutHistory(async () => {
   canvas.clear()
   canvasStore.bgValue = doc.bg
 
@@ -411,6 +415,9 @@ async function loadDocument(doc: AvnacDocumentV1) {
 
   canvas.requestRenderAll()
   canvas.calcOffset()
+  })
+  suppressChangeEmit = false
+  resetHistory(getDocument())
 }
 
 function restoreObjectControls(obj: import('fabric').FabricObject) {

@@ -34,6 +34,36 @@
         :max="canvasStore.shapeToolbarModel.rectCornerRadiusMax ?? 0"
         @change="emit('cornerRadiusChange', $event)"
       />
+      <template v-if="lineToolbarMeta">
+        <select
+          class="avnac-small-select"
+          title="Line path"
+          :value="lineToolbarMeta.arrowPathType ?? 'straight'"
+          @change="emit('linePathTypeChange', ($event.target as HTMLSelectElement).value as any)"
+        >
+          <option value="straight">Straight</option>
+          <option value="curved">Curved</option>
+        </select>
+        <select
+          class="avnac-small-select"
+          title="Line ending"
+          :value="lineHasArrowHead ? 'arrow' : 'none'"
+          @change="emit('lineArrowHeadChange', ($event.target as HTMLSelectElement).value as any)"
+        >
+          <option value="none">No arrow</option>
+          <option value="arrow">Arrow</option>
+        </select>
+        <select
+          class="avnac-small-select"
+          title="Line style"
+          :value="lineToolbarMeta.arrowLineStyle ?? 'solid'"
+          @change="emit('lineStyleChange', ($event.target as HTMLSelectElement).value as any)"
+        >
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+        </select>
+      </template>
       </template>
 
       <!-- Image corner radius -->
@@ -171,6 +201,15 @@ import CornerRadiusToolbarControl from './CornerRadiusToolbarControl.vue'
 import PaintPopoverControl from '#/components/shared/PaintPopoverControl.vue'
 
 const canvasStore = useCanvasStore()
+const lineToolbarMeta = computed(() => {
+  const meta = canvasStore.shapeToolbarModel?.meta
+  if (!meta) return null
+  return meta.kind === 'line' || meta.kind === 'arrow' ? meta : null
+})
+const lineHasArrowHead = computed(() => {
+  const meta = lineToolbarMeta.value
+  return !!meta && (meta.kind === 'arrow' || (meta.arrowHead ?? 0) > 0)
+})
 
 defineProps<{
   smartObjectSelected?: boolean
@@ -186,6 +225,9 @@ const emit = defineEmits<{
   imageCornerRadiusChange: [v: number]
   imageMaskChange: [v: 'none' | 'rect' | 'rounded' | 'circle' | 'ellipse']
   cropImage: []
+  linePathTypeChange: [v: 'straight' | 'curved']
+  lineArrowHeadChange: [v: 'none' | 'arrow']
+  lineStyleChange: [v: 'solid' | 'dashed' | 'dotted']
   strokeWidthChange: [v: number]
   strokePaintChange: [v: BgValue]
   blurChange: [v: number]
@@ -222,7 +264,8 @@ const emit = defineEmits<{
 .avnac-toolbar-btn:hover { background: var(--bg-subtle, #f0f0f0); }
 .avnac-toolbar-btn.active { background: var(--bg-subtle, #f0f0f0); }
 .avnac-toolbar-btn.danger:hover { background: #fee2e2; color: #dc2626; }
-.avnac-mask-select {
+.avnac-mask-select,
+.avnac-small-select {
   height: 28px;
   max-width: 78px;
   border: 1px solid var(--border-default, #e0e0e0);
@@ -231,5 +274,8 @@ const emit = defineEmits<{
   color: var(--fg-default, #262626);
   font-size: 11px;
   outline: none;
+}
+.avnac-small-select {
+  max-width: 94px;
 }
 </style>

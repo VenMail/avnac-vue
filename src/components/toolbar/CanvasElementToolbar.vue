@@ -39,6 +39,22 @@
       <!-- Image corner radius -->
       <template v-if="canvasStore.imageCornerToolbar">
       <div class="avnac-divider" />
+      <button class="avnac-toolbar-btn" title="Crop image" @click="emit('cropImage')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M2 6h14a2 2 0 0 1 2 2v14"/>
+        </svg>
+      </button>
+      <select
+        class="avnac-mask-select"
+        title="Image mask"
+        @change="emit('imageMaskChange', ($event.target as HTMLSelectElement).value as any)"
+      >
+        <option value="">Mask</option>
+        <option value="none">No mask</option>
+        <option value="rounded">Rounded</option>
+        <option value="circle">Circle</option>
+        <option value="ellipse">Ellipse</option>
+      </select>
       <CornerRadiusToolbarControl
         :value="canvasStore.imageCornerToolbar.radius"
         :max="canvasStore.imageCornerToolbar.max"
@@ -168,6 +184,8 @@ const emit = defineEmits<{
   shapePaintChange: [v: BgValue]
   cornerRadiusChange: [v: number]
   imageCornerRadiusChange: [v: number]
+  imageMaskChange: [v: 'none' | 'rect' | 'rounded' | 'circle' | 'ellipse']
+  cropImage: []
   strokeWidthChange: [v: number]
   strokePaintChange: [v: BgValue]
   blurChange: [v: number]
@@ -204,4 +222,14 @@ const emit = defineEmits<{
 .avnac-toolbar-btn:hover { background: var(--bg-subtle, #f0f0f0); }
 .avnac-toolbar-btn.active { background: var(--bg-subtle, #f0f0f0); }
 .avnac-toolbar-btn.danger:hover { background: #fee2e2; color: #dc2626; }
+.avnac-mask-select {
+  height: 28px;
+  max-width: 78px;
+  border: 1px solid var(--border-default, #e0e0e0);
+  border-radius: 6px;
+  background: var(--surface-raised, #fff);
+  color: var(--fg-default, #262626);
+  font-size: 11px;
+  outline: none;
+}
 </style>

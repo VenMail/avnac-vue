@@ -58,7 +58,8 @@ function transformChildSpec(
 
 // Parse a single sp/pic/cxnSp/grpSp inside a group
 // Returns null for unrecognized elements
-type ParseOneFn = (el: Element, tag: string, slideW: number, slideH: number, themeColors: Map<string, string>) => FabricObjectSpec | null
+type ParseOneResult = FabricObjectSpec | FabricObjectSpec[] | null
+type ParseOneFn = (el: Element, tag: string, slideW: number, slideH: number, themeColors: Map<string, string>) => ParseOneResult
 
 export function parseGrpSp(
   grpSp: Element,
@@ -89,7 +90,11 @@ export function parseGrpSp(
       for (const s of nested) specs.push(transformChildSpec(s, gt))
     } else {
       const spec = parseOne(child, tag, childSlideW, childSlideH, themeColors)
-      if (spec) specs.push(transformChildSpec(spec, gt))
+      if (Array.isArray(spec)) {
+        for (const s of spec) specs.push(transformChildSpec(s, gt))
+      } else if (spec) {
+        specs.push(transformChildSpec(spec, gt))
+      }
     }
   }
 

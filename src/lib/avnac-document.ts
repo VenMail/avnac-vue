@@ -29,6 +29,7 @@ export const OBJECT_SERIAL_KEYS = [
   'avnacChartData',
   'avnacChart',
   'avnacAnimations',
+  'avnacImageMask',
 ] as const
 
 export function captureAvnacDocument(

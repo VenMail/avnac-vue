@@ -50,10 +50,39 @@
             class="h-10 w-full rounded-xl border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/45"
           />
         </label>
+        <div class="mt-2 grid grid-cols-[1fr_auto] gap-2">
+          <input
+            v-model="manualUrl"
+            type="url"
+            placeholder="Paste image URL"
+            class="h-9 rounded-xl border border-black/[0.08] bg-white px-3 text-[12px] text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/45"
+            @keydown.enter.prevent="addManualUrl"
+          />
+          <button
+            type="button"
+            class="rounded-xl border border-black/[0.08] bg-neutral-900 px-3 text-[12px] font-semibold text-white disabled:opacity-40"
+            :disabled="addingManual"
+            @click="addManualUrl"
+          >Add</button>
+        </div>
+        <button
+          type="button"
+          class="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-black/[0.14] bg-neutral-50 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
+          @click="pickLocalFile"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+          </svg>
+          Upload from device
+        </button>
       </div>
 
       <div class="min-h-0 flex-1 overflow-y-auto p-2">
         <p v-if="error" class="px-1 py-2 text-[12px] text-red-600">{{ error }}</p>
+        <p v-if="error" class="px-1 pb-2 text-[12px] leading-snug text-neutral-500">
+          You can still upload from your device or paste a direct image URL above.
+        </p>
 
         <p v-if="photos.length === 0 && !loading && !error" class="px-1 py-6 text-center text-[12px] text-neutral-500">
           No photos found.
@@ -136,6 +165,7 @@ const props = defineProps<{
   panelLeft?: string
   panelTop?: string
   onAddImageFromUrl?: (opts: { url: string; origin: 'center'; width: number; height: number }) => Promise<boolean | null>
+  onAddImageFromFile?: (file: File) => void
 }>()
 
 const emit = defineEmits<{
@@ -156,6 +186,8 @@ const loading = ref(false)
 const loadingMore = ref(false)
 const error = ref<string | null>(null)
 const addingId = ref<string | null>(null)
+const manualUrl = ref('')
+const addingManual = ref(false)
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let currentFetch: { cancelled: boolean } | null = null
@@ -257,5 +289,36 @@ async function addPhoto(photo: UnsplashPhoto) {
   } finally {
     addingId.value = null
   }
+}
+
+async function addManualUrl() {
+  const url = manualUrl.value.trim()
+  if (!url || !props.onAddImageFromUrl) return
+  addingManual.value = true
+  error.value = null
+  try {
+    const ok = await props.onAddImageFromUrl({ url, origin: 'center', width: 900, height: 600 })
+    if (!ok) {
+      error.value = 'Could not load that image. Download it and use upload if the host blocks cross-origin image access.'
+      return
+    }
+    manualUrl.value = ''
+    emit('close')
+  } finally {
+    addingManual.value = false
+  }
+}
+
+function pickLocalFile() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.onchange = () => {
+    const file = input.files?.[0]
+    if (!file) return
+    props.onAddImageFromFile?.(file)
+    emit('close')
+  }
+  input.click()
 }
 </script>

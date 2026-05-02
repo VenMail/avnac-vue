@@ -77,7 +77,10 @@ function getFill(spPr: Element | null, themeColors: Map<string, string>): BgValu
   return { type: 'solid', color: '#cccccc' }
 }
 
-function getStroke(spPr: Element | null, themeColors: Map<string, string>): { width: number; paint: BgValue } | null {
+type StrokeSpec = { width: number; paint: BgValue } | null
+type FabricObjectSpecResult = FabricObjectSpec | FabricObjectSpec[] | null
+
+function getStroke(spPr: Element | null, themeColors: Map<string, string>): StrokeSpec {
   if (!spPr) return null
   const ln = q(spPr, 'ln')
   if (!ln) return null
@@ -89,6 +92,11 @@ function getStroke(spPr: Element | null, themeColors: Map<string, string>): { wi
   const width = wAttr ? Math.round(parseInt(wAttr, 10) / 12700) : 1
   if (width === 0) return null
   return { width, paint: { type: 'solid', color } }
+}
+
+function hasVisualShape(spPr: Element | null, stroke: StrokeSpec): boolean {
+  if (!spPr) return false
+  return !!stroke || !!q(spPr, 'solidFill') || !!q(spPr, 'gradFill') || !!q(spPr, 'blipFill')
 }
 
 export interface FabricObjectSpec {
@@ -124,13 +132,74 @@ export interface FabricObjectSpec {
   [key: string]: unknown
 }
 
+function createShapeSpec(
+  prst: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  angle: number,
+  scaleX: number,
+  scaleY: number,
+  fill: BgValue,
+  stroke: StrokeSpec,
+): FabricObjectSpec {
+  const spec = getPrstGeomSpec(prst)
+  const fillColor = fill.type === 'solid' ? fill.color : '#cccccc'
+
+  if (spec.type === 'Ellipse') {
+    return {
+      type: 'Ellipse',
+      left: x, top: y, width: w, height: h, angle, scaleX, scaleY,
+      fill: fillColor, avnacFill: fill,
+      rx: w / 2, ry: h / 2,
+      strokeWidth: stroke?.width ?? 0,
+      stroke: stroke ? (stroke.paint as any).color : undefined,
+      avnacStroke: stroke ?? undefined,
+    }
+  }
+
+  if (spec.type === 'Polygon') {
+    const points = spec.pointsFn(w, h)
+    return {
+      type: 'Polygon',
+      left: x, top: y, width: w, height: h, angle, scaleX, scaleY,
+      fill: fillColor, avnacFill: fill,
+      points,
+      strokeWidth: stroke?.width ?? 0,
+      stroke: stroke ? (stroke.paint as any).color : undefined,
+      avnacStroke: stroke ?? undefined,
+    }
+  }
+
+  let rx = spec.type === 'Rect' ? (spec.rx ?? 0) : 0
+  if (rx === 999) rx = Math.min(h / 2, w / 2)
+  if (prst === 'roundRect' && rx === 8) rx = Math.min(12, w * 0.1)
+
+  return {
+    type: 'Rect',
+    left: x, top: y, width: w, height: h, angle, scaleX, scaleY,
+    fill: fillColor, avnacFill: fill,
+    rx, ry: rx,
+    strokeWidth: stroke?.width ?? 0,
+    stroke: stroke ? (stroke.paint as any).color : undefined,
+    avnacStroke: stroke ?? undefined,
+  }
+}
+
+function pushSpec(out: FabricObjectSpec[], spec: FabricObjectSpecResult) {
+  if (!spec) return
+  if (Array.isArray(spec)) out.push(...spec)
+  else out.push(spec)
+}
+
 // Parse a single sp element
 function parseSp(
   sp: Element,
   slideW: number,
   slideH: number,
   themeColors: Map<string, string>,
-): FabricObjectSpec | null {
+): FabricObjectSpecResult {
   const spPr = q(sp, 'spPr')
   const txBody = q(sp, 'txBody')
   const prstGeom = q(spPr, 'prstGeom')
@@ -141,6 +210,8 @@ function parseSp(
   const { flipH, flipV } = getFlip(spPr)
   const fill = getFill(spPr, themeColors)
   const stroke = getStroke(spPr, themeColors)
+  const scaleX = flipH ? -1 : 1
+  const scaleY = flipV ? -1 : 1
 
   // Connectors disguised as sp
   if (isLineShape(prst)) {
@@ -181,16 +252,19 @@ function parseSp(
         const t = q(r, 't')
         lineText += t?.textContent ?? ''
       }
+      if (!lineText && runs.length === 0) {
+        lineText = qs(p, 't').map((t) => t.textContent ?? '').join('')
+      }
       lines.push(lineText)
     }
 
-    return {
+    const textSpec: FabricObjectSpec = {
       type: 'Textbox',
       left: x, top: y,
       width: w || 200, height: h || 50,
       angle,
-      scaleX: flipH ? -1 : 1,
-      scaleY: flipV ? -1 : 1,
+      scaleX,
+      scaleY,
       text: lines.join('\n'),
       fontFamily, fontSize,
       fontWeight: bold ? 'bold' : 'normal',
@@ -200,56 +274,17 @@ function parseSp(
       fill: textColor,
       avnacFill: { type: 'solid', color: textColor },
     }
+
+    if (hasVisualShape(spPr, stroke)) {
+      const shapeSpec = createShapeSpec(prst, x, y, w || 200, h || 50, angle, scaleX, scaleY, fill, stroke)
+      return [shapeSpec, textSpec]
+    }
+
+    return textSpec
   }
 
   // Shape without text — use prstGeom lookup
-  const spec = getPrstGeomSpec(prst)
-  const scaleX = flipH ? -1 : 1
-  const scaleY = flipV ? -1 : 1
-
-  const fillColor = fill.type === 'solid' ? fill.color : '#cccccc'
-
-  if (spec.type === 'Ellipse') {
-    return {
-      type: 'Ellipse',
-      left: x, top: y, width: w, height: h, angle, scaleX, scaleY,
-      fill: fillColor, avnacFill: fill,
-      rx: w / 2, ry: h / 2,
-      strokeWidth: stroke?.width ?? 0,
-      stroke: stroke ? (stroke.paint as any).color : undefined,
-      avnacStroke: stroke ?? undefined,
-    }
-  }
-
-  if (spec.type === 'Polygon') {
-    const points = spec.pointsFn(w, h)
-    return {
-      type: 'Polygon',
-      left: x, top: y, width: w, height: h, angle, scaleX, scaleY,
-      fill: fillColor, avnacFill: fill,
-      points,
-      strokeWidth: stroke?.width ?? 0,
-      stroke: stroke ? (stroke.paint as any).color : undefined,
-      avnacStroke: stroke ?? undefined,
-    }
-  }
-
-  // Rect (default, and roundRect)
-  let rx = spec.type === 'Rect' ? (spec.rx ?? 0) : 0
-  // Handle flowChartTerminator pill: rx=999 means h/2
-  if (rx === 999) rx = Math.min(h / 2, w / 2)
-  // For roundRect, use a sensible px radius
-  if (prst === 'roundRect' && rx === 8) rx = Math.min(12, w * 0.1)
-
-  return {
-    type: 'Rect',
-    left: x, top: y, width: w, height: h, angle, scaleX, scaleY,
-    fill: fillColor, avnacFill: fill,
-    rx, ry: rx,
-    strokeWidth: stroke?.width ?? 0,
-    stroke: stroke ? (stroke.paint as any).color : undefined,
-    avnacStroke: stroke ?? undefined,
-  }
+  return createShapeSpec(prst, x, y, w, h, angle, scaleX, scaleY, fill, stroke)
 }
 
 // Parse a pic (image) element
@@ -291,7 +326,7 @@ function parseOne(
   themeColors: Map<string, string>,
   mediaFiles: Map<string, string>,
   chartXmlMap: Map<string, Document>,
-): FabricObjectSpec | null {
+): FabricObjectSpecResult {
   if (tag === 'sp') return parseSp(el, slideW, slideH, themeColors)
   if (tag === 'pic') return parsePic(el, slideW, slideH, mediaFiles)
   if (tag === 'cxnSp') return parseCxnSp(el, slideW, slideH, themeColors)
@@ -315,19 +350,19 @@ export function slideToFabricObjects(slide: ParsedSlide): FabricObjectSpec[] {
     const tag = child.localName
     if (tag === 'sp') {
       const spec = parseSp(child, slideW, slideH, themeColors)
-      if (spec) objects.push(spec)
+      pushSpec(objects, spec)
     } else if (tag === 'pic') {
       const spec = parsePic(child, slideW, slideH, mediaFiles)
-      if (spec) objects.push(spec)
+      pushSpec(objects, spec)
     } else if (tag === 'cxnSp') {
       const spec = parseCxnSp(child, slideW, slideH, themeColors)
-      if (spec) objects.push(spec)
+      pushSpec(objects, spec)
     } else if (tag === 'grpSp') {
       const specs = parseGrpSp(child, slideW, slideH, themeColors, parseOneFn)
       objects.push(...specs)
     } else if (tag === 'graphicFrame') {
       const spec = parseGraphicFrameChart(child, slideW, slideH, chartXmlMap)
-      if (spec) objects.push(spec)
+      pushSpec(objects, spec)
     }
   }
 

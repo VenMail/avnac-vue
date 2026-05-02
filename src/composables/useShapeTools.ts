@@ -9,6 +9,7 @@ import { installArrowEndpointControls } from '#/lib/fabric-line-arrow-controls'
 import { enableTextboxAutoWidth, fitTextboxWidthToContent } from '#/lib/avnac-textbox-autowidth'
 import { ensureGoogleFontFamilyReady } from '#/lib/load-google-font'
 import { setAvnacStroke } from '#/lib/avnac-fill-paint'
+import { loadExportSafeFabricImage } from '#/lib/avnac-image-proxy'
 import { useCanvasStore } from '#/stores/canvas'
 
 type GesturePoint = { x: number; y: number }
@@ -686,7 +687,7 @@ export function useShapeTools(
     if (!canvas || !mod) return null
     const w = artboardWRef.value
     const h = artboardHRef.value
-    const img = await mod.FabricImage.fromURL(opts.url, { crossOrigin: 'anonymous' })
+    const img = await loadExportSafeFabricImage(mod, opts.url)
     const targetW = opts.width ?? img.width ?? 200
     const targetH = opts.height ?? img.height ?? 200
     const scaleX = targetW / (img.width ?? 1)

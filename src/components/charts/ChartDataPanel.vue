@@ -6,7 +6,7 @@
         @update:value="store.updateChartData($event)"
       />
       <div class="panel-actions">
-        <button class="apply-btn" @click="store.closeChartEditor()">Done</button>
+        <button class="apply-btn secondary" @click="store.closeChartEditor()">Done</button>
       </div>
     </template>
     <template v-else>
@@ -49,4 +49,8 @@ const selectedType = ref<ChartType>('bar')
   cursor: pointer;
 }
 .apply-btn:hover { opacity: 0.9; }
+.apply-btn.secondary {
+  background: var(--bg-subtle, #f5f5f5);
+  color: var(--fg-default, #262626);
+}
 </style>

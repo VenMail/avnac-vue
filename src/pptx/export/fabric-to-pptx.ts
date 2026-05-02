@@ -12,8 +12,17 @@ import { addInfographicToPptx } from './infographic-to-pptx'
 import { addDiagramToPptx } from './diagram-to-pptx'
 import { addSmartObjectToPptx, collectSmartObjectExports } from './smart-object-to-pptx'
 
-const SLIDE_W_IN = 10
-const SLIDE_H_IN = 7.5
+export interface PptxSlideSize {
+  widthIn: number
+  heightIn: number
+}
+
+export function pptxSlideSizeFromArtboard(artboard: { width: number; height: number }): PptxSlideSize {
+  const ratio = Math.max(0.1, artboard.width / Math.max(1, artboard.height))
+  const heightIn = ratio >= 1 ? 7.5 : 10
+  const widthIn = heightIn * ratio
+  return { widthIn, heightIn }
+}
 
 // pptxgenjs assigns shape IDs starting at 2 for the first element on a blank slide.
 const PPTX_SHAPE_ID_START = 2
@@ -21,12 +30,15 @@ const PPTX_SHAPE_ID_START = 2
 export function addDocumentToPresentation(
   pptx: PptxGenJS,
   doc: AvnacDocumentV1,
+  slideSize: PptxSlideSize = pptxSlideSizeFromArtboard(doc.artboard),
 ): ShapeAnimRecord[] {
   const { artboard } = doc
   const aw = artboard.width
   const ah = artboard.height
+  const slideWIn = slideSize.widthIn
+  const slideHIn = slideSize.heightIn
 
-  pptx.defineLayout({ name: 'CUSTOM', width: SLIDE_W_IN, height: SLIDE_H_IN })
+  pptx.defineLayout({ name: 'CUSTOM', width: slideWIn, height: slideHIn })
   pptx.layout = 'CUSTOM'
 
   const slide = pptx.addSlide()
@@ -61,31 +73,31 @@ export function addDocumentToPresentation(
       let added = false
       // Specialized object kinds take priority
       if (smartObject && smartObject.firstIndex === index) {
-        const n = addSmartObjectToPptx(slide, smartObject, aw, ah, SLIDE_W_IN, SLIDE_H_IN)
+        const n = addSmartObjectToPptx(slide, smartObject, aw, ah, slideWIn, slideHIn)
         exportedSmartObjectIds.add(smartObject.id)
         shapeId += n
       } else if (smartObject) {
         continue
       } else if (kind === 'infographic') {
-        const n = addInfographicToPptx(slide, obj as any, aw, ah, SLIDE_W_IN, SLIDE_H_IN)
+        const n = addInfographicToPptx(slide, obj as any, aw, ah, slideWIn, slideHIn)
         shapeId += n  // advance past the N shapes infographic added
       } else if (kind === 'diagram') {
-        const n = addDiagramToPptx(slide, obj as any, aw, ah, SLIDE_W_IN, SLIDE_H_IN)
+        const n = addDiagramToPptx(slide, obj as any, aw, ah, slideWIn, slideHIn)
         shapeId += n  // advance past the N shapes diagram added
       } else if ((type === 'image' || type === 'fabricimage') && obj.avnacChart) {
-        addChartToPptx(slide, obj as any, aw, ah, SLIDE_W_IN, SLIDE_H_IN)
+        addChartToPptx(slide, obj as any, aw, ah, slideWIn, slideHIn)
         added = true
       } else if (kind === 'line' || kind === 'arrow') {
-        addArrowToPptx(slide, obj as any, aw, ah, SLIDE_W_IN, SLIDE_H_IN)
+        addArrowToPptx(slide, obj as any, aw, ah, slideWIn, slideHIn)
         added = true
       } else if (type === 'textbox' || type === 'itext') {
-        addTextToPptx(slide, obj as any, aw, ah, SLIDE_W_IN, SLIDE_H_IN)
+        addTextToPptx(slide, obj as any, aw, ah, slideWIn, slideHIn)
         added = true
       } else if (type === 'image' || type === 'fabricimage') {
-        addImageToPptx(slide, obj as any, aw, ah, SLIDE_W_IN, SLIDE_H_IN)
+        addImageToPptx(slide, obj as any, aw, ah, slideWIn, slideHIn)
         added = true
       } else if (type === 'rect' || type === 'ellipse') {
-        addShapeToPptx(slide, obj as any, aw, ah, SLIDE_W_IN, SLIDE_H_IN)
+        addShapeToPptx(slide, obj as any, aw, ah, slideWIn, slideHIn)
         added = true
       }
       // polygon/star/general group: skip (no direct pptxgenjs equivalent)

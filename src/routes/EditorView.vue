@@ -41,6 +41,10 @@
           <EditorFloatingSidebar
             :active-panel="activePanel"
             @select-panel="togglePanel"
+            @insert-text="onAddText"
+            @insert-shape="onShapePick"
+            @insert-line="onLinePick"
+            @start-pen="editorRef?.shapeTools.startPenDrawMode()"
           />
           <EditorLayersPanel
             :open="activePanel === 'layers'"
@@ -88,8 +92,6 @@
       <!-- Bottom bar slot -->
       <template #bottom-bar>
         <div class="flex items-center justify-center gap-4 p-3">
-          <ShapesPopover @pick="onShapePick" />
-          <button class="avnac-icon-btn" title="Add text" @click="onAddText">T</button>
           <button class="avnac-icon-btn" title="Add image" @click="onAddImage">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
@@ -126,7 +128,6 @@ import CanvasEditor from '#/components/canvas/CanvasEditor.vue'
 import CanvasElementToolbar from '#/components/toolbar/CanvasElementToolbar.vue'
 import EditorFloatingSidebar from '#/components/panels/EditorFloatingSidebar.vue'
 import EditorLayersPanel from '#/components/panels/EditorLayersPanel.vue'
-import ShapesPopover from '#/components/toolbar/ShapesPopover.vue'
 import CanvasZoomSlider from '#/components/toolbar/CanvasZoomSlider.vue'
 import PaintPopoverControl from '#/components/shared/PaintPopoverControl.vue'
 import EditorImagesPanel from '#/components/panels/EditorImagesPanel.vue'
@@ -269,6 +270,10 @@ function onShapePick(kind: string) {
     return
   }
   editorRef.value?.shapeTools.addShapeByKind(kind)
+}
+
+function onLinePick(kind: 'line' | 'connector') {
+  editorRef.value?.shapeTools.startLineDrawMode(kind)
 }
 
 function onAddText() {

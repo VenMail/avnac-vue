@@ -19,6 +19,7 @@ withDefaults(defineProps<{ ariaLabel?: string }>(), { ariaLabel: 'Toolbar' })
   gap: 2px;
   padding: 4px 8px;
   background: var(--surface-raised, #fff);
+  color: var(--fg-default, #262626);
   border: 1px solid var(--border-default, #e0e0e0);
   border-radius: 999px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.1);

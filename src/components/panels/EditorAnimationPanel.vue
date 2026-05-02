@@ -24,6 +24,26 @@
       </button>
     </div>
 
+    <div class="anim-panel__timeline">
+      <div class="anim-panel__section-title">Slide order</div>
+      <div v-if="slideAnimationRows.length === 0" class="anim-panel__hint">
+        No animations on this slide yet.
+      </div>
+      <button
+        v-for="row in slideAnimationRows"
+        :key="row.key"
+        class="anim-panel__timeline-row"
+        :class="{ active: row.selected }"
+        @click="selectTimelineObject(row.object)"
+      >
+        <span class="anim-panel__order">{{ row.order + 1 }}</span>
+        <span class="anim-panel__timeline-main">
+          <strong>{{ row.label }}</strong>
+          <small>{{ row.effects }}</small>
+        </span>
+      </button>
+    </div>
+
     <!-- Empty state -->
     <div v-if="!canvasStore.hasObjectSelected" class="anim-panel__empty">
       Select an object to add animations.
@@ -64,7 +84,7 @@
             <label class="anim-panel__field">
               <span>Effect</span>
               <select :value="entry.effect" @change="updateEntry(entry.id, 'effect', ($event.target as HTMLSelectElement).value)">
-                <option v-for="key in EFFECTS_BY_KIND[kind]" :key="key" :value="key">
+                <option v-for="key in effectsForKind(kind)" :key="key" :value="key">
                   {{ effectCatalog[key]?.label ?? key }}
                 </option>
               </select>
@@ -140,11 +160,38 @@ const selectedEntryId = ref<string | null>(null)
 let previewHandle: TimelineHandle | null = null
 
 const entries = computed<AvnacAnimationEntry[]>(() => canvasStore.animationToolbarModel?.entries ?? [])
+const TEXT_EFFECTS = new Set(['textTypewriter', 'textWordReveal', 'textLineReveal'])
 
 type AnimationTarget = FabricObject & {
   avnacAnimations?: AvnacAnimationEntry[]
   avnacSmartObjectRole?: string
+  avnacLayerName?: string
+  text?: string
 }
+
+const selectedHasText = computed(() => animationTargets(props.canvas).some((object) => typeof object.text === 'string'))
+
+const slideAnimationRows = computed(() => {
+  const canvas = props.canvas
+  if (!canvas) return []
+  const activeObjects = new Set(canvas.getActiveObjects())
+  return canvas.getObjects()
+    .map((object, index) => ({ object: object as AnimationTarget, index }))
+    .filter(({ object }) => Array.isArray(object.avnacAnimations) && object.avnacAnimations.length > 0)
+    .map(({ object, index }) => {
+      const sorted = [...(object.avnacAnimations ?? [])].sort((a, b) => a.order - b.order)
+      const label = object.avnacLayerName || object.text?.slice(0, 28) || object.type || 'Object'
+      return {
+        key: `${index}-${label}`,
+        object,
+        order: sorted[0]?.order ?? index,
+        label,
+        effects: sorted.map(entry => effectLabel(entry.effect)).join(', '),
+        selected: activeObjects.has(object),
+      }
+    })
+    .sort((a, b) => a.order - b.order)
+})
 
 function animationTargets(canvas: Canvas | null): AnimationTarget[] {
   const active = canvas?.getActiveObject()
@@ -155,6 +202,12 @@ function animationTargets(canvas: Canvas | null): AnimationTarget[] {
 
 function entriesByKind(kind: AnimationKind) {
   return entries.value.filter((e) => e.kind === kind).sort((a, b) => a.order - b.order)
+}
+
+function effectsForKind(kind: AnimationKind) {
+  const keys = EFFECTS_BY_KIND[kind]
+  if (kind !== 'entry' || selectedHasText.value) return keys
+  return keys.filter((key) => !TEXT_EFFECTS.has(key))
 }
 
 function effectLabel(key: string): string {
@@ -194,6 +247,15 @@ function onPreviewSlide() {
   previewHandle = previewSlideAnimations(canvas)
 }
 
+function selectTimelineObject(object: AnimationTarget) {
+  const canvas = props.canvas
+  if (!canvas) return
+  canvas.discardActiveObject()
+  canvas.setActiveObject(object)
+  canvas.requestRenderAll()
+  canvas.fire('selection:updated', { selected: [object], target: object } as any)
+}
+
 onBeforeUnmount(stopPreview)
 
 function addEntry(kind: AnimationKind) {
@@ -223,7 +285,8 @@ function updateEntry(id: string, field: keyof AvnacAnimationEntry, value: unknow
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   font-size: 12px;
   color: var(--fg-default, #262626);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   max-height: calc(100vh - 120px);
   display: flex;
   flex-direction: column;
@@ -247,6 +310,8 @@ function updateEntry(id: string, field: keyof AvnacAnimationEntry, value: unknow
   padding: 24px 16px; text-align: center; color: var(--fg-muted, #71717a);
 }
 .anim-panel__preview-row {
+  display: flex;
+  gap: 6px;
   padding: 8px 12px 4px;
   flex-shrink: 0;
 }
@@ -257,9 +322,81 @@ function updateEntry(id: string, field: keyof AvnacAnimationEntry, value: unknow
   color: var(--fg-default, #262626);
 }
 .anim-panel__preview-btn:hover { background: var(--accent-subtle, #eef2ff); }
+.anim-panel__timeline {
+  padding: 6px 8px 8px;
+  border-top: 1px solid var(--border-default, #e0e0e0);
+  border-bottom: 1px solid var(--border-default, #e0e0e0);
+  flex-shrink: 0;
+  max-height: min(240px, 32vh);
+  overflow-y: auto;
+}
+.anim-panel__section-title {
+  padding: 2px 4px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fg-muted, #71717a);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.anim-panel__hint {
+  padding: 8px 4px;
+  color: var(--fg-muted, #71717a);
+  font-size: 11px;
+}
+.anim-panel__timeline-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 6px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--fg-default, #262626);
+  cursor: pointer;
+  text-align: left;
+}
+.anim-panel__timeline-row:hover,
+.anim-panel__timeline-row.active {
+  background: var(--accent-subtle, #eef2ff);
+}
+.anim-panel__order {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 999px;
+  background: var(--bg-subtle, #f5f5f5);
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.anim-panel__timeline-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+.anim-panel__timeline-main strong {
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+}
+.anim-panel__timeline-main small {
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-muted, #71717a);
+  font-size: 10px;
+}
 .anim-panel__group {
   border-top: 1px solid var(--border-default, #e0e0e0);
-  overflow-y: auto;
+  overflow: visible;
+  flex-shrink: 0;
 }
 .anim-panel__group-header {
   display: flex; align-items: center; justify-content: space-between;

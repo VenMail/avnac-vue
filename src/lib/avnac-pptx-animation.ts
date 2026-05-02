@@ -20,6 +20,9 @@ const EFFECT_PRESET_MAP: Record<string, PptxAnimPreset> = {
   zoomIn:     { presetClass: 'entr', presetID: 23, presetSubtype: 16 },
   growIn:     { presetClass: 'entr', presetID: 6,  presetSubtype: 0 },
   bounceIn:   { presetClass: 'entr', presetID: 6,  presetSubtype: 0 },  // nearest: Grow & Turn
+  textTypewriter: { presetClass: 'entr', presetID: 12, presetSubtype: 1 },
+  textWordReveal: { presetClass: 'entr', presetID: 12, presetSubtype: 1 },
+  textLineReveal: { presetClass: 'entr', presetID: 12, presetSubtype: 1 },
 
   pulse:      { presetClass: 'emph', presetID: 14, presetSubtype: 0 },
   spin:       { presetClass: 'emph', presetID: 8,  presetSubtype: 0 },

@@ -109,6 +109,8 @@ function onPointerUp(e: PointerEvent) {
   padding: 0 4px;
   border-radius: 4px;
   user-select: none;
+  color: var(--fg-default, #262626);
+  background: transparent;
 }
 .avnac-font-size-scrubber:hover {
   background: var(--bg-subtle, #f5f5f5);
@@ -122,5 +124,7 @@ function onPointerUp(e: PointerEvent) {
   padding: 2px 4px;
   outline: none;
   font-size: inherit;
+  background: var(--surface-raised, #fff);
+  color: var(--fg-default, #262626);
 }
 </style>

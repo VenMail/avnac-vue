@@ -179,6 +179,7 @@ function toggleLineHeight() {
   gap: 2px;
   flex-wrap: nowrap;
   white-space: nowrap;
+  color: var(--fg-default, #262626);
 }
 .avnac-divider {
   width: 1px;
@@ -216,13 +217,19 @@ function toggleLineHeight() {
   height: 28px;
   border: 1px solid var(--border-default, #e0e0e0);
   border-radius: 6px;
-  background: transparent;
+  background: var(--surface-raised, #fff);
   cursor: pointer;
   font-size: 12px;
+  color: var(--fg-default, #262626);
   max-width: 130px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.avnac-font-family-btn span {
+  color: var(--fg-default, #262626);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .avnac-font-menu {
   position: absolute;
@@ -241,6 +248,8 @@ function toggleLineHeight() {
   border-bottom: 1px solid var(--border-default, #e0e0e0);
   font-size: 12px;
   outline: none;
+  background: var(--surface-raised, #fff);
+  color: var(--fg-default, #262626);
 }
 .avnac-font-list {
   max-height: 240px;
@@ -257,6 +266,7 @@ function toggleLineHeight() {
   font-size: 13px;
   cursor: pointer;
   border-radius: 4px;
+  color: var(--fg-default, #262626);
 }
 .avnac-font-item:hover {
   background: var(--bg-subtle, #f5f5f5);

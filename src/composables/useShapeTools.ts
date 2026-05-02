@@ -12,7 +12,7 @@ import { setAvnacStroke } from '#/lib/avnac-fill-paint'
 import { useCanvasStore } from '#/stores/canvas'
 
 type GesturePoint = { x: number; y: number }
-type LineGestureKind = 'line' | 'arrow'
+type LineGestureKind = 'line' | 'arrow' | 'connector'
 
 export function useShapeTools(
   fabricCanvas: ShallowRef<Canvas | null>,
@@ -242,6 +242,49 @@ export function useShapeTools(
     canvas.requestRenderAll()
   }
 
+  function connectorPathD(x1: number, y1: number, x2: number, y2: number): string {
+    const midX = Math.round((x1 + x2) / 2)
+    return `M ${Math.round(x1)} ${Math.round(y1)} L ${midX} ${Math.round(y1)} L ${midX} ${Math.round(y2)} L ${Math.round(x2)} ${Math.round(y2)}`
+  }
+
+  function addConnector() {
+    const canvas = fabricCanvas.value
+    const mod = fabricMod.value
+    if (!canvas || !mod) return
+    const { rectW } = layout()
+    const w = artboardWRef.value
+    const h = artboardHRef.value
+    const half = Math.round(rectW * 0.42)
+    createConnectorFromEndpoints(w / 2 - half, h / 2 - 90, w / 2 + half, h / 2 + 90)
+  }
+
+  function createConnectorFromEndpoints(x1: number, y1: number, x2: number, y2: number) {
+    const canvas = fabricCanvas.value
+    const mod = fabricMod.value
+    if (!canvas || !mod) return
+    const paint = canvasStore.selectedPaint
+    const path = new mod.Path(connectorPathD(x1, y1, x2, y2), {
+      fill: '',
+      stroke: bgValueSolidFallback(paint),
+      strokeWidth: 6,
+      strokeLineCap: 'round',
+      strokeLineJoin: 'round',
+      objectCaching: false,
+    })
+    setAvnacStroke(path, paint)
+    setAvnacShapeMeta(path, {
+      kind: 'connector',
+      arrowEndpoints: { x1, y1, x2, y2 },
+      arrowStrokeWidth: 6,
+      arrowLineStyle: 'solid',
+      arrowRoundedEnds: true,
+    })
+    ensureAvnacLayerId(path)
+    canvas.add(path)
+    canvas.setActiveObject(path)
+    canvas.requestRenderAll()
+  }
+
   function pointFromEvent(canvas: Canvas, event: unknown): GesturePoint {
     const withScenePoint = canvas as Canvas & { getScenePoint?: (e: unknown) => GesturePoint }
     if (withScenePoint.getScenePoint) return withScenePoint.getScenePoint(event)
@@ -311,7 +354,12 @@ export function useShapeTools(
     const last = points[points.length - 1]
     const direct = Math.hypot(last.x - first.x, last.y - first.y)
     if (direct < 6) {
-      kind === 'arrow' ? addArrow() : addLine()
+      kind === 'arrow' ? addArrow() : kind === 'connector' ? addConnector() : addLine()
+      return
+    }
+
+    if (kind === 'connector') {
+      createConnectorFromEndpoints(first.x, first.y, last.x, last.y)
       return
     }
 
@@ -363,7 +411,7 @@ export function useShapeTools(
 
     let drawing = false
     let points: GesturePoint[] = []
-    let preview: import('fabric').Line | null = null
+    let preview: import('fabric').FabricObject | null = null
     const priorSelection = canvas.selection
     const priorCursor = canvas.defaultCursor
     canvas.selection = false
@@ -390,7 +438,18 @@ export function useShapeTools(
     const onMouseDown = (eventInfo: any) => {
       drawing = true
       points = [pointFromEvent(canvas, eventInfo.e)]
-      preview = new mod.Line([points[0].x, points[0].y, points[0].x, points[0].y], {
+      preview = kind === 'connector'
+        ? new mod.Path(connectorPathD(points[0].x, points[0].y, points[0].x, points[0].y), {
+          fill: '',
+          stroke: bgValueSolidFallback(canvasStore.selectedPaint),
+          strokeWidth: 3,
+          strokeDashArray: [8, 5],
+          strokeLineCap: 'round',
+          strokeLineJoin: 'round',
+          selectable: false,
+          evented: false,
+        })
+        : new mod.Line([points[0].x, points[0].y, points[0].x, points[0].y], {
         stroke: bgValueSolidFallback(canvasStore.selectedPaint),
         strokeWidth: 3,
         strokeDashArray: [8, 5],
@@ -406,7 +465,22 @@ export function useShapeTools(
       const point = pointFromEvent(canvas, eventInfo.e)
       const last = points[points.length - 1]
       if (!last || Math.hypot(point.x - last.x, point.y - last.y) >= 3) points.push(point)
-      preview.set({ x2: point.x, y2: point.y })
+      if (kind === 'connector') {
+        canvas.remove(preview)
+        preview = new mod.Path(connectorPathD(points[0].x, points[0].y, point.x, point.y), {
+          fill: '',
+          stroke: bgValueSolidFallback(canvasStore.selectedPaint),
+          strokeWidth: 3,
+          strokeDashArray: [8, 5],
+          strokeLineCap: 'round',
+          strokeLineJoin: 'round',
+          selectable: false,
+          evented: false,
+        })
+        canvas.add(preview)
+      } else {
+        preview.set({ x2: point.x, y2: point.y } as any)
+      }
       preview.setCoords()
       canvas.requestRenderAll()
     }
@@ -433,17 +507,45 @@ export function useShapeTools(
 
   function startPenDrawMode() {
     const canvas = fabricCanvas.value
-    if (!canvas) return
+    const mod = fabricMod.value
+    if (!canvas || !mod) return
     cleanupLineDrawMode?.()
 
     let drawing = false
     let points: GesturePoint[] = []
+    let preview: import('fabric').Path | null = null
     const priorSelection = canvas.selection
     const priorCursor = canvas.defaultCursor
     canvas.selection = false
     canvas.defaultCursor = 'crosshair'
     canvas.discardActiveObject()
     canvas.requestRenderAll()
+
+    const previewPathD = () => points
+      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${Math.round(point.x * 10) / 10} ${Math.round(point.y * 10) / 10}`)
+      .join(' ')
+
+    const updatePreview = () => {
+      if (preview) {
+        canvas.remove(preview)
+        preview = null
+      }
+      if (points.length < 2) return
+      preview = new mod.Path(previewPathD(), {
+        fill: '',
+        stroke: bgValueSolidFallback(canvasStore.selectedPaint),
+        strokeWidth: 5,
+        strokeLineCap: 'round',
+        strokeLineJoin: 'round',
+        selectable: false,
+        evented: false,
+        objectCaching: false,
+        excludeFromExport: true,
+        opacity: 0.92,
+      } as any)
+      canvas.add(preview)
+      canvas.requestRenderAll()
+    }
 
     const finish = (commit: boolean) => {
       canvas.off('mouse:down', onMouseDown)
@@ -453,6 +555,10 @@ export function useShapeTools(
       cleanupLineDrawMode = null
       canvas.selection = priorSelection
       canvas.defaultCursor = priorCursor
+      if (preview) {
+        canvas.remove(preview)
+        preview = null
+      }
       if (commit && points.length >= 2) createFreehandPath(points, 'line')
       else canvas.requestRenderAll()
     }
@@ -468,7 +574,7 @@ export function useShapeTools(
       const last = points[points.length - 1]
       if (!last || Math.hypot(point.x - last.x, point.y - last.y) >= 2) {
         points.push(point)
-        canvas.requestRenderAll()
+        updatePreview()
       }
     }
 
@@ -563,6 +669,7 @@ export function useShapeTools(
       case 'polygon': return addPolygon(opts?.sides)
       case 'star': return addStar(opts?.points)
       case 'line': return addLine()
+      case 'connector': return addConnector()
       case 'arrow': return addArrow()
     }
   }

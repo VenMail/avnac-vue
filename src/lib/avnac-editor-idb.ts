@@ -99,6 +99,7 @@ export async function idbPutDocument(
   document: AvnacDocumentV1,
   opts?: { name?: string },
 ): Promise<void> {
+  const storableDocument = JSON.parse(JSON.stringify(document)) as AvnacDocumentV1
   const prev = await idbGetEditorRecord(id)
   const name =
     opts && opts.name !== undefined
@@ -113,7 +114,7 @@ export async function idbPutDocument(
       tx.objectStore(STORE).put({
         id,
         updatedAt: Date.now(),
-        document,
+        document: storableDocument,
         name,
       } satisfies AvnacEditorIdbRecord)
     })

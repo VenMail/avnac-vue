@@ -56,6 +56,7 @@ export type AvnacShapeKind =
   | 'polygon'
   | 'star'
   | 'line'
+  | 'connector'
   | 'arrow'
 
 export type ArrowLineStyle = 'solid' | 'dashed' | 'dotted'

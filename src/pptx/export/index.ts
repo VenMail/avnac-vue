@@ -1,5 +1,5 @@
 import type { AvnacDocumentV1 } from '#/lib/avnac-document'
-import { addDocumentToPresentation } from './fabric-to-pptx'
+import { addDocumentToPresentation, pptxSlideSizeFromArtboard } from './fabric-to-pptx'
 import { injectAnimationsIntoPptx } from './animation-to-pptx'
 import type { ShapeAnimRecord } from './animation-to-pptx'
 
@@ -9,10 +9,11 @@ export async function exportDocumentsToPptx(
 ): Promise<void> {
   const PptxGenJS = (await import('pptxgenjs')).default
   const pptx = new PptxGenJS()
+  const slideSize = pptxSlideSizeFromArtboard(docs[0]?.artboard ?? { width: 4000, height: 2250 })
 
   const slidesAnims: ShapeAnimRecord[][] = []
   for (const doc of docs) {
-    slidesAnims.push(addDocumentToPresentation(pptx, doc))
+    slidesAnims.push(addDocumentToPresentation(pptx, doc, slideSize))
   }
 
   const hasAnims = slidesAnims.some(a => a.length > 0)
@@ -39,7 +40,7 @@ export async function exportDocumentsToPptx(
 export async function exportDocumentToPptxBlob(doc: AvnacDocumentV1): Promise<Blob> {
   const PptxGenJS = (await import('pptxgenjs')).default
   const pptx = new PptxGenJS()
-  const animRecords = addDocumentToPresentation(pptx, doc)
+  const animRecords = addDocumentToPresentation(pptx, doc, pptxSlideSizeFromArtboard(doc.artboard))
 
   if (!animRecords.length) {
     const data = await pptx.write({ outputType: 'blob' })

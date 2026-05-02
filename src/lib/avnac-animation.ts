@@ -74,6 +74,10 @@ export const effectCatalog: Record<string, EffectDef> = {
     kind: 'entry', label: 'Word Reveal', defaultDurationMs: 800, defaultEasing: 'easeOut',
     build: () => ({ from: {}, to: {} }),
   },
+  textLineReveal: {
+    kind: 'entry', label: 'Line Reveal', defaultDurationMs: 900, defaultEasing: 'easeOut',
+    build: () => ({ from: {}, to: {} }),
+  },
 
   // ── Emphasis ─────────────────────────────────────────────────────────────
   pulse: {
@@ -129,7 +133,7 @@ export const effectCatalog: Record<string, EffectDef> = {
 }
 
 export const EFFECTS_BY_KIND: Record<AnimationKind, string[]> = {
-  entry: ['fadeIn', 'flyInLeft', 'flyInRight', 'flyInTop', 'flyInBottom', 'wipeIn', 'zoomIn', 'growIn', 'bounceIn', 'textTypewriter', 'textWordReveal'],
+  entry: ['fadeIn', 'flyInLeft', 'flyInRight', 'flyInTop', 'flyInBottom', 'wipeIn', 'zoomIn', 'growIn', 'bounceIn', 'textTypewriter', 'textWordReveal', 'textLineReveal'],
   emphasis: ['pulse', 'spin', 'shake', 'grow', 'shrink'],
   exit: ['fadeOut', 'flyOutLeft', 'flyOutRight', 'wipeOut', 'zoomOut', 'shrinkOut'],
 }

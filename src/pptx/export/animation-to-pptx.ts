@@ -15,7 +15,9 @@ function resetIds() { _id = 0 }
 function effectToFilter(effect: string): string {
   switch (effect) {
     case 'fadeIn': case 'fadeOut':       return 'fade'
-    case 'wipeIn': case 'wipeOut':       return 'wipe(left)'
+    case 'wipeIn': case 'wipeOut':
+    case 'textTypewriter': case 'textWordReveal': case 'textLineReveal':
+      return 'wipe(left)'
     case 'flyInLeft': case 'flyOutLeft': return 'wipe(right)'
     case 'flyInRight': case 'flyOutRight': return 'wipe(left)'
     case 'flyInTop': case 'flyOutTop':   return 'wipe(down)'

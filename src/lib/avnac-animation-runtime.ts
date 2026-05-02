@@ -198,11 +198,16 @@ function runTextEntry(
   canvas: Canvas,
 ): { controls: AnimationPlaybackControls[]; done: Promise<void> } | null {
   if (!isTextObject(obj)) return null
-  if (entry.effect !== 'textTypewriter' && entry.effect !== 'textWordReveal') return null
+  if (entry.effect !== 'textTypewriter' && entry.effect !== 'textWordReveal' && entry.effect !== 'textLineReveal') return null
 
   const original = obj.text
   const words = original.split(/(\s+)/)
-  const max = entry.effect === 'textWordReveal' ? words.length : original.length
+  const lines = original.split(/(\n)/)
+  const max = entry.effect === 'textWordReveal'
+    ? words.length
+    : entry.effect === 'textLineReveal'
+      ? lines.length
+      : original.length
   const controls: AnimationPlaybackControls[] = []
 
   obj.set('text', '')
@@ -216,7 +221,12 @@ function runTextEntry(
       ease: motionEase(entry.easing),
       onUpdate: (value) => {
         const count = Math.max(0, Math.min(max, Math.round(value)))
-        obj.set('text', entry.effect === 'textWordReveal' ? words.slice(0, count).join('') : original.slice(0, count))
+        const nextText = entry.effect === 'textWordReveal'
+          ? words.slice(0, count).join('')
+          : entry.effect === 'textLineReveal'
+            ? lines.slice(0, count).join('')
+            : original.slice(0, count)
+        obj.set('text', nextText)
         obj.setCoords?.()
         canvas.requestRenderAll()
       },

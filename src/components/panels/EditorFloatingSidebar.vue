@@ -23,6 +23,10 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Straight line
           </button>
+          <button @click="pickLine('curved-line')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18 Q12 4 20 18"/></svg>
+            Curved line
+          </button>
           <button @click="pickLine('connector')">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7h7v10h7"/><polyline points="15 13 19 17 15 21"/></svg>
             Connector
@@ -81,7 +85,7 @@ const emit = defineEmits<{
   selectPanel: [id: EditorSidebarPanelId]
   insertText: []
   insertShape: [kind: string]
-  insertLine: [kind: 'line' | 'connector']
+  insertLine: [kind: 'line' | 'curved-line' | 'connector']
   startPen: []
 }>()
 
@@ -151,7 +155,7 @@ function toggleLineMenu() {
   else detachLine()
 }
 
-function pickLine(kind: 'line' | 'connector') {
+function pickLine(kind: 'line' | 'curved-line' | 'connector') {
   lineOpen.value = false
   detachLine()
   emit('insertLine', kind)

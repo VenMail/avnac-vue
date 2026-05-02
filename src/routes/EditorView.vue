@@ -151,7 +151,7 @@ import { useInfographicsStore } from '#/stores/infographics'
 import { useDiagramsStore } from '#/stores/diagrams'
 import { exportDocumentsToPptx } from '#/pptx/export'
 import { importPptxFromInput } from '#/pptx/import'
-import { ensureGoogleFontFamilyReady } from '#/lib/load-google-font'
+import { applyTextFormatChange } from '#/lib/apply-text-format'
 import type { AvnacChartData } from '#/lib/avnac-chart-data'
 import { ensureAvnacLayerId } from '#/lib/ensure-avnac-layer-id'
 import type { AvnacInfographicData } from '#/lib/avnac-infographic'
@@ -195,6 +195,7 @@ async function togglePanel(id: EditorSidebarPanelId) {
     return
   }
   activePanel.value = activePanel.value === id ? null : id
+  if (activePanel.value === 'charts') openSelectedChartInPanel()
   if (activePanel.value === 'infographics' || activePanel.value === 'diagrams') {
     await openSelectedSmartObjectInPanel(activePanel.value)
   }
@@ -275,7 +276,7 @@ function onShapePick(kind: string) {
   editorRef.value?.shapeTools.addShapeByKind(kind)
 }
 
-function onLinePick(kind: 'line' | 'connector') {
+function onLinePick(kind: 'line' | 'curved-line' | 'connector') {
   editorRef.value?.shapeTools.startLineDrawMode(kind)
 }
 
@@ -327,38 +328,12 @@ function onTextFormatChange(partial: Partial<TextFormatToolbarValues>) {
   if (!canvas) return
   const active = canvas.getActiveObject() as any
   if (!active) return
-
-  if (partial.fontFamily !== undefined) {
-    active.set('fontFamily', partial.fontFamily)
-    void ensureGoogleFontFamilyReady(partial.fontFamily).then(() => {
-      active.initDimensions?.()
-      active.setCoords?.()
-      canvas.requestRenderAll()
-    })
-  }
-  if (partial.fontSize !== undefined) active.set('fontSize', partial.fontSize)
-  if (partial.bold !== undefined) active.set('fontWeight', partial.bold ? 'bold' : 'normal')
-  if (partial.italic !== undefined) active.set('fontStyle', partial.italic ? 'italic' : 'normal')
-  if (partial.underline !== undefined) active.set('underline', partial.underline)
-  if (partial.textAlign !== undefined) active.set('textAlign', partial.textAlign)
-  if (partial.lineHeight !== undefined) active.set('lineHeight', partial.lineHeight)
   if (canvasStore.textToolbarValues) {
     canvasStore.textToolbarValues = { ...canvasStore.textToolbarValues, ...partial }
   }
-  if (partial.fillStyle !== undefined) {
-    import('#/lib/avnac-fill-paint').then(({ applyBgValueToFill }) => {
-      import('fabric').then((mod) => {
-        applyBgValueToFill(mod, active, partial.fillStyle!)
-        canvas.requestRenderAll()
-        void syncActiveSmartText()
-      })
-    })
-    return
-  }
-  active.initDimensions?.()
-  active.setCoords?.()
-  canvas.requestRenderAll()
-  void syncActiveSmartText()
+  import('fabric').then((mod) => {
+    void applyTextFormatChange(mod, canvas, active, partial).then(() => syncActiveSmartText())
+  })
 }
 
 async function syncActiveSmartText() {
@@ -512,22 +487,40 @@ async function onInsertChart(data: AvnacChartData) {
     avnacGroupKind: 'chart',
     avnacLayerName: 'Chart',
   } as any)
-  ensureAvnacLayerId(img)
+  const id = ensureAvnacLayerId(img)
   canvas.add(img)
   canvas.setActiveObject(img)
   canvas.requestRenderAll()
-  activePanel.value = null
+  chartsStore.openChartEditor(id, structuredClone(data))
+  activePanel.value = 'charts'
 }
 
-// Re-render active chart image when user saves edits in the chart data dialog.
+function findChartObject(id: string | null | undefined): any | null {
+  const canvas = getCanvas()
+  if (!canvas) return null
+  const active = canvas.getActiveObject() as any
+  if (active?.avnacChart && (!id || active.avnacLayerId === id || active.avnacGroupId === id)) return active
+  const objects = canvas.getObjects?.() ?? []
+  return objects.find((obj: any) => obj?.avnacChart && (!id || obj.avnacLayerId === id || obj.avnacGroupId === id)) ?? null
+}
+
+function openSelectedChartInPanel() {
+  const canvas = getCanvas()
+  if (!canvas) return
+  const active = canvas.getActiveObject() as any
+  if (!active?.avnacChart) return
+  chartsStore.openChartEditor(active.avnacLayerId ?? 'chart', active.avnacChart)
+}
+
+// Re-render active chart image when user edits chart data in the panel/dialog.
 watch(() => chartsStore.renderRev, async () => {
   const canvas = getCanvas()
   if (!canvas) return
   const data = chartsStore.editingChartData
   if (!data) return
-  const active = canvas.getActiveObject() as any
+  const active = findChartObject(chartsStore.editingChartId)
   if (!active?.avnacChart) return
-  active.avnacChart = data
+  active.avnacChart = structuredClone(data)
   const w = (active.width ?? 400) * (active.scaleX ?? 1)
   const h = (active.height ?? 300) * (active.scaleY ?? 1)
   const { renderChartToDataUrl } = await import('#/composables/useChartRenderer')
@@ -568,6 +561,7 @@ function onEditChartData() {
   const active = canvas.getActiveObject() as any
   if (!active?.avnacChart) return
   chartsStore.openChartEditor(active.avnacLayerId ?? 'active', active.avnacChart)
+  activePanel.value = 'charts'
 }
 
 function onDeleteSelected() {

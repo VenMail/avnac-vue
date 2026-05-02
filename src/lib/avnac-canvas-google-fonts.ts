@@ -58,6 +58,7 @@ export async function loadCanvasGoogleFontsAndRelayout(
 ): Promise<void> {
   const families = collectFontFamiliesFromCanvas(canvas, mod)
   await ensureGoogleFontsForFamilies(families)
+  mod.cache.clearFontCache()
   for (const o of canvas.getObjects()) relayoutFabricTextTree(o, mod)
   canvas.requestRenderAll()
 }

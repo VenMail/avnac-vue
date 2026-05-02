@@ -1,5 +1,5 @@
 <template>
-  <div ref="viewportRef" class="avnac-editor" tabindex="0" @keydown="onKeyDown" @pointerdown.capture="refreshCanvasOffset" @contextmenu.prevent>
+  <div ref="viewportRef" class="avnac-editor" tabindex="0" @pointerdown.capture="refreshCanvasOffset" @contextmenu.prevent>
     <!-- Artboard zoom container -->
     <div
       ref="canvasZoomRef"
@@ -55,6 +55,9 @@ import { getSceneHandleSizesForArtboard, applySceneHandleSizesToCanvas, applySce
 import { refreshAvnacLineArrowHandleSizes } from '#/lib/fabric-line-arrow-controls'
 import { getAvnacGroupId } from '#/lib/avnac-shape-meta'
 import { findGroupMembers } from '#/lib/avnac-logical-group'
+import { getAvnacShapeMeta, isAvnacStrokeLineLike } from '#/lib/avnac-shape-meta'
+import { installArrowEndpointControls } from '#/lib/fabric-line-arrow-controls'
+import { applyTextFormatChange } from '#/lib/apply-text-format'
 import {
   createAvnacCommandRegistry,
   type AvnacEditorContext,
@@ -195,6 +198,7 @@ watch(() => canvasStore.ready, async (ready) => {
   if (!ready) return
   const canvas = fabricCanvas.value
   if (!canvas) return
+  window.addEventListener('keydown', onKeyDown, true)
 
   toolbarSync.attachSelectionListeners(canvas)
   persistence.attachPersistenceListeners(canvas)
@@ -361,6 +365,7 @@ watch(() => canvasStore.ready, async (ready) => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeyDown, true)
   for (const cleanup of pluginCleanups) cleanup()
   pluginCleanups = []
   pluginContext.value = null
@@ -398,11 +403,23 @@ async function loadDocument(doc: AvnacDocumentV1) {
   const fabricData = doc.fabric as { objects?: unknown[] }
   if (fabricData.objects?.length) {
     const objects = await mod.util.enlivenObjects(fabricData.objects)
-    objects.forEach((o) => canvas.add(o as import('fabric').FabricObject))
+    objects.forEach((o) => {
+      restoreObjectControls(o as import('fabric').FabricObject)
+      canvas.add(o as import('fabric').FabricObject)
+    })
   }
 
   canvas.requestRenderAll()
   canvas.calcOffset()
+}
+
+function restoreObjectControls(obj: import('fabric').FabricObject) {
+  const mod = fabricMod.value
+  if (!mod) return
+  const meta = getAvnacShapeMeta(obj)
+  if (meta && isAvnacStrokeLineLike(meta) && obj instanceof mod.Group) {
+    installArrowEndpointControls(obj)
+  }
 }
 
 function getDocument(): AvnacDocumentV1 {
@@ -478,13 +495,37 @@ function setZoom(pct: number) {
 // Keyboard shortcuts
 // ────────────────────────────────────────────
 function onKeyDown(e: KeyboardEvent) {
-  const target = e.target as HTMLElement
-  if (target.closest('input, textarea, [contenteditable="true"]')) return
-  if (target.closest('[data-avnac-chrome]')) return
-
   const canvas = fabricCanvas.value
   const mod = fabricMod.value
   if (!canvas || !mod) return
+  const active = canvas.getActiveObject()
+  const activeText = active && (active instanceof mod.IText || active instanceof mod.Textbox) ? active : null
+
+  if ((e.ctrlKey || e.metaKey) && activeText) {
+    const key = e.key.toLowerCase()
+    if (key === 'b' || key === 'i' || key === 'u') {
+      e.preventDefault()
+      const partial =
+        key === 'b'
+          ? { bold: !(activeText.fontWeight === 'bold' || activeText.fontWeight === 700) }
+          : key === 'i'
+            ? { italic: activeText.fontStyle !== 'italic' }
+            : { underline: !activeText.underline }
+      void applyTextFormatChange(mod, canvas, activeText, partial)
+      return
+    }
+    if (key === '+' || key === '=' || key === '-' || key === '_') {
+      e.preventDefault()
+      const current = activeText.fontSize ?? Math.round(artboardWRef.value * 0.04)
+      const delta = (key === '-' || key === '_') ? -4 : 4
+      void applyTextFormatChange(mod, canvas, activeText, { fontSize: Math.max(8, Math.round(current + delta)) })
+      return
+    }
+  }
+
+  const target = e.target as HTMLElement
+  if (target.closest('input, textarea, [contenteditable="true"]')) return
+  if (target.closest('[data-avnac-chrome]')) return
 
   // Undo / redo
   if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -507,7 +548,6 @@ function onKeyDown(e: KeyboardEvent) {
     return
   }
 
-  const active = canvas.getActiveObject()
   if (!active) return
 
   // Delete / backspace

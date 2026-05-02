@@ -12,7 +12,7 @@ import { setAvnacStroke } from '#/lib/avnac-fill-paint'
 import { useCanvasStore } from '#/stores/canvas'
 
 type GesturePoint = { x: number; y: number }
-type LineGestureKind = 'line' | 'arrow' | 'connector'
+type LineGestureKind = 'line' | 'curved-line' | 'arrow' | 'connector'
 
 export function useShapeTools(
   fabricCanvas: ShallowRef<Canvas | null>,
@@ -258,6 +258,50 @@ export function useShapeTools(
     createConnectorFromEndpoints(w / 2 - half, h / 2 - 90, w / 2 + half, h / 2 + 90)
   }
 
+  function addCurvedLine() {
+    const canvas = fabricCanvas.value
+    const mod = fabricMod.value
+    if (!canvas || !mod) return
+    const { rectW } = layout()
+    const w = artboardWRef.value
+    const h = artboardHRef.value
+    const paint = canvasStore.selectedPaint
+    const half = Math.round(rectW * 0.42)
+    const cx = w / 2
+    const cy = h / 2
+    const x1 = cx - half
+    const y1 = cy
+    const x2 = cx + half
+    const y2 = cy
+    const strokeW = 10
+    const curveBulge = -Math.round(Math.max(160, rectW * 0.18))
+    const g = createArrowGroup(mod, x1, y1, x2, y2, {
+      strokeWidth: strokeW,
+      headFrac: 0,
+      color: bgValueSolidFallback(paint),
+      pathType: 'curved',
+      curveBulge,
+      roundedEnds: true,
+    })
+    setAvnacStroke(g, paint)
+    setAvnacShapeMeta(g, {
+      kind: 'line',
+      arrowHead: 0,
+      arrowEndpoints: { x1, y1, x2, y2 },
+      arrowStrokeWidth: strokeW,
+      arrowLineStyle: 'solid',
+      arrowRoundedEnds: true,
+      arrowPathType: 'curved',
+      arrowCurveBulge: curveBulge,
+      arrowCurveT: 0.5,
+    })
+    installArrowEndpointControls(g)
+    ensureAvnacLayerId(g)
+    canvas.add(g)
+    canvas.setActiveObject(g)
+    canvas.requestRenderAll()
+  }
+
   function createConnectorFromEndpoints(x1: number, y1: number, x2: number, y2: number) {
     const canvas = fabricCanvas.value
     const mod = fabricMod.value
@@ -334,7 +378,7 @@ export function useShapeTools(
     })
     setAvnacStroke(path, paint)
     setAvnacShapeMeta(path, {
-      kind,
+      kind: kind === 'curved-line' ? 'line' : kind,
       arrowStrokeWidth: 5,
       arrowLineStyle: 'solid',
       arrowRoundedEnds: true,
@@ -374,26 +418,30 @@ export function useShapeTools(
     const color = bgValueSolidFallback(paint)
     const strokeW = 6
     const curveBulge = curveBulgeFromPoints(points)
-    const isCurved = Math.abs(curveBulge) > Math.max(20, direct * 0.08) || ratio > 1.12
+    const forceCurved = kind === 'curved-line'
+    const isCurved = forceCurved || Math.abs(curveBulge) > Math.max(20, direct * 0.08) || ratio > 1.12
+    const effectiveBulge = forceCurved && Math.abs(curveBulge) < Math.max(20, direct * 0.08)
+      ? -Math.min(direct * 0.3, 220)
+      : curveBulge
     const head = kind === 'arrow' ? 1 : 0
     const g = createArrowGroup(mod, first.x, first.y, last.x, last.y, {
       strokeWidth: strokeW,
       headFrac: head,
       color,
       pathType: isCurved ? 'curved' : 'straight',
-      curveBulge: isCurved ? curveBulge : undefined,
-      roundedEnds: kind === 'line',
+      curveBulge: isCurved ? effectiveBulge : undefined,
+      roundedEnds: kind === 'line' || kind === 'curved-line',
     })
     setAvnacStroke(g, paint)
     setAvnacShapeMeta(g, {
-      kind,
+      kind: kind === 'curved-line' ? 'line' : kind,
       arrowHead: head,
       arrowEndpoints: { x1: first.x, y1: first.y, x2: last.x, y2: last.y },
       arrowStrokeWidth: strokeW,
       arrowLineStyle: 'solid',
-      arrowRoundedEnds: kind === 'line',
+      arrowRoundedEnds: kind === 'line' || kind === 'curved-line',
       arrowPathType: isCurved ? 'curved' : 'straight',
-      arrowCurveBulge: isCurved ? curveBulge : undefined,
+      arrowCurveBulge: isCurved ? effectiveBulge : undefined,
       arrowCurveT: 0.5,
     })
     installArrowEndpointControls(g)
@@ -669,6 +717,7 @@ export function useShapeTools(
       case 'polygon': return addPolygon(opts?.sides)
       case 'star': return addStar(opts?.points)
       case 'line': return addLine()
+      case 'curved-line': return addCurvedLine()
       case 'connector': return addConnector()
       case 'arrow': return addArrow()
     }
@@ -681,6 +730,7 @@ export function useShapeTools(
     addPolygon,
     addStar,
     addLine,
+    addCurvedLine,
     addArrow,
     startLineDrawMode,
     startPenDrawMode,

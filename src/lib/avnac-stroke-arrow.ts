@@ -1,13 +1,15 @@
 import {
   Group,
+  Circle,
   LayoutManager,
   LayoutStrategy,
   Path,
   Point,
   Polygon,
+  type FabricObject,
   type XY,
 } from 'fabric'
-import type { ArrowLineStyle, ArrowPathType } from './avnac-shape-meta'
+import type { ArrowHeadType, ArrowLineStyle, ArrowPathType } from './avnac-shape-meta'
 import { getAvnacShapeMeta } from './avnac-shape-meta'
 
 export type ArrowOpts = {
@@ -15,6 +17,7 @@ export type ArrowOpts = {
   headFrac: number
   color: string
   lineStyle?: ArrowLineStyle
+  headType?: ArrowHeadType
   roundedEnds?: boolean
   pathType?: ArrowPathType
   curveBulge?: number
@@ -189,11 +192,11 @@ function headTangentAngleDeg(
 
 export function getArrowParts(
   g: Group,
-): { shaft: Path; head: Polygon | undefined } | null {
+): { shaft: Path; head: FabricObject | undefined } | null {
   const objs = g.getObjects()
   const shaft = objs.find((o) => o instanceof Path) as Path | undefined
   if (!shaft) return null
-  const head = objs.find((o) => o instanceof Polygon) as Polygon | undefined
+  const head = objs.find((o) => o !== shaft) as FabricObject | undefined
   return { shaft, head }
 }
 
@@ -208,6 +211,148 @@ export function arrowDisplayColor(g: Group): string {
     }
   }
   return '#262626'
+}
+
+function arrowHeadTypeOf(head: FabricObject | undefined): ArrowHeadType | undefined {
+  return (head as FabricObject & { avnacArrowHeadType?: ArrowHeadType } | undefined)?.avnacArrowHeadType
+}
+
+function createArrowHeadObject(
+  type: ArrowHeadType,
+  L: number,
+  headLen: number,
+  headHalf: number,
+  color: string,
+  headTilt: number,
+  strokeW: number,
+): FabricObject | undefined {
+  if (type === 'none') return undefined
+
+  let head: FabricObject
+  if (type === 'open') {
+    head = new Path(`M 0 ${-headHalf} L ${headLen} 0 L 0 ${headHalf}`, {
+      left: L / 2 - headLen,
+      top: 0,
+      originX: 'left',
+      originY: 'center',
+      angle: headTilt,
+      fill: '',
+      stroke: color,
+      strokeWidth: Math.max(1, strokeW),
+      strokeLineCap: 'round',
+      strokeLineJoin: 'round',
+      selectable: false,
+      evented: false,
+      objectCaching: false,
+    })
+  } else if (type === 'circle') {
+    const radius = Math.max(1, headHalf * 0.76)
+    head = new Circle({
+      radius,
+      left: L / 2 - radius,
+      top: 0,
+      originX: 'center',
+      originY: 'center',
+      angle: headTilt,
+      fill: color,
+      stroke: null,
+      strokeWidth: 0,
+      selectable: false,
+      evented: false,
+      objectCaching: false,
+    })
+  } else {
+    const pts: XY[] = type === 'diamond'
+      ? [
+        { x: 0, y: 0 },
+        { x: headLen / 2, y: -headHalf },
+        { x: headLen, y: 0 },
+        { x: headLen / 2, y: headHalf },
+      ]
+      : [
+        { x: 0, y: -headHalf },
+        { x: headLen, y: 0 },
+        { x: 0, y: headHalf },
+      ]
+    head = new Polygon(pts, {
+      left: L / 2 - headLen,
+      top: 0,
+      originX: 'left',
+      originY: 'center',
+      angle: headTilt,
+      fill: color,
+      stroke: null,
+      strokeWidth: 0,
+      selectable: false,
+      evented: false,
+      objectCaching: false,
+    })
+  }
+
+  ;(head as FabricObject & { avnacArrowHeadType?: ArrowHeadType }).avnacArrowHeadType = type
+  return head
+}
+
+function updateArrowHeadObject(
+  group: Group,
+  current: FabricObject | undefined,
+  type: ArrowHeadType,
+  L: number,
+  headLen: number,
+  headHalf: number,
+  color: string,
+  headTilt: number,
+  strokeW: number,
+): FabricObject | undefined {
+  if (type === 'none') {
+    current?.set({ visible: false })
+    return current
+  }
+
+  let head = current
+  if (!head || arrowHeadTypeOf(head) !== type) {
+    if (head) group.remove(head)
+    head = createArrowHeadObject(type, L, headLen, headHalf, color, headTilt, strokeW)
+    if (head) group.add(head)
+    return head
+  }
+
+  head.set({
+    left: type === 'circle' ? L / 2 - Math.max(1, headHalf * 0.76) : L / 2 - headLen,
+    top: 0,
+    originX: type === 'circle' ? 'center' : 'left',
+    originY: 'center',
+    angle: headTilt,
+    fill: type === 'open' ? '' : color,
+    stroke: type === 'open' ? color : null,
+    strokeWidth: type === 'open' ? Math.max(1, strokeW) : 0,
+    visible: true,
+    scaleX: 1,
+    scaleY: 1,
+  })
+  if (head instanceof Polygon) {
+    head.set({
+      points: type === 'diamond'
+        ? [
+          { x: 0, y: 0 },
+          { x: headLen / 2, y: -headHalf },
+          { x: headLen, y: 0 },
+          { x: headLen / 2, y: headHalf },
+        ]
+        : [
+          { x: 0, y: -headHalf },
+          { x: headLen, y: 0 },
+          { x: 0, y: headHalf },
+        ],
+    })
+    head.setDimensions()
+  } else if (head instanceof Circle) {
+    head.set({ radius: Math.max(1, headHalf * 0.76) })
+  } else if (head instanceof Path && type === 'open') {
+    head._setPath(`M 0 ${-headHalf} L ${headLen} 0 L 0 ${headHalf}`, false)
+  }
+  head.setCoords()
+  return head
 }
 
 function arrowGroupSize(
@@ -236,6 +381,7 @@ export function createArrowGroup(
     headFrac,
     color,
     lineStyle,
+    headType = headFrac > 0 ? 'triangle' : 'none',
     roundedEnds,
     pathType,
     curveBulge: curveBulgeOpt,
@@ -273,27 +419,8 @@ export function createArrowGroup(
   shaft._setPath(pathD, false)
   setShaftPositionAnchoredToTail(shaft, L)
 
-  let head: Polygon | undefined
-  if (hf >= 0.01) {
-    const headPts: XY[] = [
-      { x: 0, y: -headHalf },
-      { x: headLen, y: 0 },
-      { x: 0, y: headHalf },
-    ]
-    head = new mod.Polygon(headPts, {
-      left: L / 2 - headLen,
-      top: 0,
-      originX: 'left',
-      originY: 'center',
-      angle: headTilt,
-      fill: color,
-      stroke: null,
-      strokeWidth: 0,
-      selectable: false,
-      evented: false,
-      objectCaching: false,
-    })
-  }
+  const effectiveHeadType = hf >= 0.01 ? headType : 'none'
+  const head = createArrowHeadObject(effectiveHeadType, L, headLen, headHalf, color, headTilt, strokeW)
 
   const children = head ? [shaft, head] : [shaft]
   const { w, h } = arrowGroupSize(L, strokeW, headHalf, bulge)
@@ -330,6 +457,7 @@ export function layoutArrowGroup(
     headFrac,
     color,
     lineStyle,
+    headType = headFrac > 0 ? 'triangle' : 'none',
     roundedEnds,
     pathType,
     curveBulge: curveBulgeOpt,
@@ -367,33 +495,21 @@ export function layoutArrowGroup(
   })
   setShaftPositionAnchoredToTail(shaft, L)
 
-  if (hf >= 0.01 && head) {
-    const headPts: XY[] = [
-      { x: 0, y: -headHalf },
-      { x: headLen, y: 0 },
-      { x: 0, y: headHalf },
-    ]
-    head.set({
-      points: headPts,
-      left: L / 2 - headLen,
-      top: 0,
-      originX: 'left',
-      originY: 'center',
-      angle: headTilt,
-      fill: color,
-      stroke: null,
-      strokeWidth: 0,
-      scaleX: 1,
-      scaleY: 1,
-      visible: true,
-    })
-    head.setDimensions()
-  } else if (head) {
-    head.set({ visible: false })
-  }
+  const effectiveHeadType = hf >= 0.01 ? headType : 'none'
+  const nextHead = updateArrowHeadObject(
+    group,
+    head,
+    effectiveHeadType,
+    L,
+    headLen,
+    headHalf,
+    color,
+    headTilt,
+    strokeW,
+  )
 
   shaft.setCoords()
-  head?.setCoords()
+  nextHead?.setCoords()
 
   const { w, h } = arrowGroupSize(L, strokeW, headHalf, bulge)
 

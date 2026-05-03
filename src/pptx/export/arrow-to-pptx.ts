@@ -12,7 +12,7 @@ export interface FabricArrowGroupLike {
   angle: number
   opacity?: number
   avnacStroke?: { width: number; paint: BgValue }
-  avnacShape?: { kind: 'line' | 'arrow' }
+  avnacShape?: { kind: 'line' | 'arrow'; arrowHead?: number; arrowHeadType?: string; arrowLineStyle?: string }
 }
 
 export function addArrowToPptx(
@@ -30,7 +30,15 @@ export function addArrowToPptx(
   const x = obj.left / artboardW * slideW
   const y = obj.top / artboardH * slideH
   const rotate = Math.round(obj.angle ?? 0)
-  const isArrow = obj.avnacShape?.kind === 'arrow'
+  const arrowHeadType = obj.avnacShape?.arrowHeadType ?? (obj.avnacShape?.kind === 'arrow' ? 'triangle' : 'none')
+  const pptxArrowType = arrowHeadType === 'open' ? 'triangle'
+    : arrowHeadType === 'circle' ? 'oval'
+    : arrowHeadType === 'diamond' ? 'diamond'
+    : arrowHeadType === 'triangle' ? 'triangle'
+    : 'none'
+  const dashType = obj.avnacShape?.arrowLineStyle === 'dashed' ? 'dash'
+    : obj.avnacShape?.arrowLineStyle === 'dotted' ? 'sysDot'
+    : 'solid'
 
   const strokePaint = obj.avnacStroke?.paint ?? { type: 'solid' as const, color: '#262626' }
   const strokeWidth = obj.avnacStroke?.width ?? 2
@@ -46,8 +54,8 @@ export function addArrowToPptx(
     line: {
       color,
       width: strokeWidth,
-      dashType: 'solid',
-      endArrowType: isArrow ? 'arrow' : 'none',
+      dashType,
+      endArrowType: pptxArrowType,
     },
   })
 }

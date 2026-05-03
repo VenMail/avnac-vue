@@ -47,11 +47,14 @@
         <select
           class="avnac-small-select"
           title="Line ending"
-          :value="lineHasArrowHead ? 'arrow' : 'none'"
+          :value="lineArrowHeadType"
           @change="emit('lineArrowHeadChange', ($event.target as HTMLSelectElement).value as any)"
         >
           <option value="none">No arrow</option>
-          <option value="arrow">Arrow</option>
+          <option value="triangle">Triangle</option>
+          <option value="open">Open arrow</option>
+          <option value="circle">Circle</option>
+          <option value="diamond">Diamond</option>
         </select>
         <select
           class="avnac-small-select"
@@ -191,6 +194,7 @@ import { useCanvasStore } from '#/stores/canvas'
 import type { TextFormatToolbarValues } from '#/stores/canvas'
 import type { BgValue } from '#/lib/bg-value'
 import type { FabricShadowUi } from '#/lib/avnac-fabric-shadow'
+import { avnacStrokeLineHeadType, type ArrowHeadType } from '#/lib/avnac-shape-meta'
 import FloatingToolbarShell from './FloatingToolbarShell.vue'
 import TextFormatToolbar from './TextFormatToolbar.vue'
 import StrokeToolbarPopover from './StrokeToolbarPopover.vue'
@@ -206,9 +210,9 @@ const lineToolbarMeta = computed(() => {
   if (!meta) return null
   return meta.kind === 'line' || meta.kind === 'arrow' ? meta : null
 })
-const lineHasArrowHead = computed(() => {
+const lineArrowHeadType = computed<ArrowHeadType>(() => {
   const meta = lineToolbarMeta.value
-  return !!meta && (meta.kind === 'arrow' || (meta.arrowHead ?? 0) > 0)
+  return meta ? avnacStrokeLineHeadType(meta) : 'none'
 })
 
 defineProps<{
@@ -226,7 +230,7 @@ const emit = defineEmits<{
   imageMaskChange: [v: 'none' | 'rect' | 'rounded' | 'circle' | 'ellipse']
   cropImage: []
   linePathTypeChange: [v: 'straight' | 'curved']
-  lineArrowHeadChange: [v: 'none' | 'arrow']
+  lineArrowHeadChange: [v: ArrowHeadType]
   lineStyleChange: [v: 'solid' | 'dashed' | 'dotted']
   strokeWidthChange: [v: number]
   strokePaintChange: [v: BgValue]
@@ -276,6 +280,6 @@ const emit = defineEmits<{
   outline: none;
 }
 .avnac-small-select {
-  max-width: 94px;
+  max-width: 108px;
 }
 </style>

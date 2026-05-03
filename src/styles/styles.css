@@ -47,6 +47,7 @@
   #root,
   #app {
     min-height: 100%;
+    color-scheme: light;
   }
 
   body {

@@ -21,6 +21,7 @@ import {
 import type { SceneHandleSizes } from './fabric-selection-chrome'
 import {
   avnacStrokeLineHeadFrac,
+  avnacStrokeLineHeadType,
   getAvnacShapeMeta,
   isAvnacStrokeLineLike,
   setAvnacShapeMeta,
@@ -174,6 +175,7 @@ function arrowEndpointAction(which: 'tail' | 'tip'): TransformActionHandler {
     layoutArrowGroup(g, ep.x1, ep.y1, ep.x2, ep.y2, {
       strokeWidth: strokeW,
       headFrac: avnacStrokeLineHeadFrac(meta),
+      headType: avnacStrokeLineHeadType(meta),
       color,
       lineStyle: meta.arrowLineStyle,
       roundedEnds: meta.arrowRoundedEnds,
@@ -288,6 +290,7 @@ function arrowCurveHandleAction(): TransformActionHandler {
     layoutArrowGroup(g, ep.x1, ep.y1, ep.x2, ep.y2, {
       strokeWidth: strokeW,
       headFrac,
+      headType: avnacStrokeLineHeadType(meta),
       color,
       lineStyle: meta.arrowLineStyle,
       roundedEnds: meta.arrowRoundedEnds,

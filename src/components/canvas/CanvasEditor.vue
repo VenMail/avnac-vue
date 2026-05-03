@@ -47,7 +47,7 @@ import { useToolbarSync } from '#/composables/useToolbarSync'
 import { useLayerPanel } from '#/composables/useLayerPanel'
 import { useCanvasPersistence } from '#/composables/useCanvasPersistence'
 import { useCanvasStore } from '#/stores/canvas'
-import { captureAvnacDocument, type AvnacDocumentV1 } from '#/lib/avnac-document'
+import { captureAvnacDocument, OBJECT_SERIAL_KEYS, cloneAvnacPlain, type AvnacDocumentV1 } from '#/lib/avnac-document'
 import { linearGradientForBox } from '#/lib/fabric-linear-gradient'
 import { getAvnacLocked } from '#/lib/avnac-object-lock'
 import { removeActiveObjectFromCanvas } from '#/lib/fabric-remove-selection'
@@ -552,6 +552,67 @@ function onKeyDown(e: KeyboardEvent) {
     e.preventDefault()
     canvas.setActiveObject(new mod.ActiveSelection(canvas.getObjects(), { canvas }))
     canvas.requestRenderAll()
+    return
+  }
+
+  // Clipboard paste (works without selection)
+  if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+    if (active && 'isEditing' in active && (active as import('fabric').IText).isEditing) return
+    e.preventDefault()
+    navigator.clipboard.readText().then(async (text) => {
+      try {
+        const data = JSON.parse(text)
+        if (!data?.avnacClipboard || !Array.isArray(data.objects) || !data.objects.length) return
+        const enlivened = await (mod.util as any).enlivenObjects(data.objects)
+        if (!enlivened.length) return
+        canvas.discardActiveObject()
+        const offset = 40
+        for (const obj of enlivened) {
+          obj.set({ left: (obj.left ?? 0) + offset, top: (obj.top ?? 0) + offset })
+          obj.setCoords()
+          canvas.add(obj)
+        }
+        if (enlivened.length === 1) {
+          canvas.setActiveObject(enlivened[0])
+        } else {
+          const sel = new mod.ActiveSelection(enlivened, { canvas })
+          canvas.setActiveObject(sel)
+        }
+        canvas.requestRenderAll()
+        schedulePersist(canvas)
+      } catch {}
+    }).catch(() => {})
+    return
+  }
+
+  // Copy / cut (need selection)
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'x')) {
+    if (!active) return
+    if ('isEditing' in active && (active as import('fabric').IText).isEditing) return
+    e.preventDefault()
+    const serialKeys = [...OBJECT_SERIAL_KEYS] as string[]
+    const targets = active instanceof mod.ActiveSelection
+      ? canvas.getActiveObjects()
+      : [active]
+    // Deselect so objects have absolute canvas coordinates, then serialize
+    canvas.discardActiveObject()
+    const objects = targets.map((o: any) => o.toObject(serialKeys))
+    // Re-select (or skip if cutting)
+    if (e.key === 'x') {
+      for (const o of targets) canvas.remove(o)
+      canvas.requestRenderAll()
+      canvasStore.clearSelection()
+      schedulePersist(canvas)
+    } else {
+      if (targets.length === 1) {
+        canvas.setActiveObject(targets[0])
+      } else {
+        canvas.setActiveObject(new mod.ActiveSelection(targets, { canvas }))
+      }
+      canvas.requestRenderAll()
+    }
+    const clip = JSON.stringify({ avnacClipboard: true, v: 1, objects: cloneAvnacPlain(objects) })
+    navigator.clipboard.writeText(clip).catch(() => {})
     return
   }
 

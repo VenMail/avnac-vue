@@ -499,6 +499,135 @@ function setZoom(pct: number) {
 }
 
 // ────────────────────────────────────────────
+// Clipboard paste — handles avnac JSON, image, plain text
+// ────────────────────────────────────────────
+async function readClipboardPayload(): Promise<{ imageBlob?: Blob; text?: string }> {
+  try {
+    const items = await (navigator.clipboard as any).read()
+    let imageBlob: Blob | undefined
+    let text: string | undefined
+    for (const item of items) {
+      const types: string[] = item.types || []
+      const imgType = types.find((t: string) => t.startsWith('image/'))
+      if (imgType && !imageBlob) {
+        imageBlob = await item.getType(imgType)
+      }
+      if (types.includes('text/plain') && text == null) {
+        const blob = await item.getType('text/plain')
+        text = await blob.text()
+      }
+    }
+    return { imageBlob, text }
+  } catch {
+    try {
+      const text = await navigator.clipboard.readText()
+      return { text }
+    } catch {
+      return {}
+    }
+  }
+}
+
+async function pasteAvnacObjects(canvas: any, mod: any, objects: any[]): Promise<boolean> {
+  const enlivened = await (mod.util as any).enlivenObjects(objects)
+  if (!enlivened.length) return false
+  canvas.discardActiveObject()
+  const offset = 40
+  for (const obj of enlivened) {
+    obj.set({ left: (obj.left ?? 0) + offset, top: (obj.top ?? 0) + offset })
+    obj.setCoords()
+    canvas.add(obj)
+  }
+  if (enlivened.length === 1) {
+    canvas.setActiveObject(enlivened[0])
+  } else {
+    canvas.setActiveObject(new mod.ActiveSelection(enlivened, { canvas }))
+  }
+  canvas.requestRenderAll()
+  schedulePersist(canvas)
+  return true
+}
+
+async function pasteImageBlob(canvas: any, mod: any, blob: Blob): Promise<boolean> {
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(r.result as string)
+    r.onerror = reject
+    r.readAsDataURL(blob)
+  })
+  const img = await (mod as any).FabricImage.fromURL(dataUrl, { crossOrigin: 'anonymous' })
+  if (!img) return false
+  const artW = artboardWRef.value
+  const artH = artboardHRef.value
+  const naturalW = (img.width as number) || 100
+  const naturalH = (img.height as number) || 100
+  const maxW = artW * 0.6
+  const maxH = artH * 0.6
+  const scale = Math.min(maxW / naturalW, maxH / naturalH, 1)
+  img.set({
+    left: artW / 2,
+    top: artH / 2,
+    originX: 'center',
+    originY: 'center',
+    scaleX: scale,
+    scaleY: scale,
+  })
+  canvas.add(img)
+  canvas.setActiveObject(img)
+  canvas.requestRenderAll()
+  schedulePersist(canvas)
+  return true
+}
+
+function pastePlainText(canvas: any, mod: any, text: string): boolean {
+  const trimmed = text.replace(/\r\n/g, '\n')
+  if (!trimmed) return false
+  const artW = artboardWRef.value
+  const artH = artboardHRef.value
+  const tb = new mod.Textbox(trimmed, {
+    left: artW / 2,
+    top: artH / 2,
+    originX: 'center',
+    originY: 'center',
+    width: Math.min(artW * 0.6, Math.max(800, artW * 0.4)),
+    fontSize: Math.max(24, Math.round(artW * 0.025)),
+    fontFamily: 'Inter',
+    fill: '#18181b',
+    textAlign: 'left',
+  })
+  canvas.add(tb)
+  canvas.setActiveObject(tb)
+  canvas.requestRenderAll()
+  schedulePersist(canvas)
+  return true
+}
+
+async function handlePaste(canvas: any, mod: any) {
+  const { imageBlob, text } = await readClipboardPayload()
+
+  // Avnac JSON takes priority (cross-canvas object copy)
+  if (text) {
+    try {
+      const data = JSON.parse(text)
+      if (data?.avnacClipboard && Array.isArray(data.objects) && data.objects.length) {
+        await pasteAvnacObjects(canvas, mod, data.objects)
+        return
+      }
+    } catch {}
+  }
+
+  // Image next
+  if (imageBlob) {
+    try {
+      if (await pasteImageBlob(canvas, mod, imageBlob)) return
+    } catch {}
+  }
+
+  // Plain text fallback
+  if (text) pastePlainText(canvas, mod, text)
+}
+
+// ────────────────────────────────────────────
 // Keyboard shortcuts
 // ────────────────────────────────────────────
 function onKeyDown(e: KeyboardEvent) {
@@ -559,29 +688,7 @@ function onKeyDown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
     if (active && 'isEditing' in active && (active as import('fabric').IText).isEditing) return
     e.preventDefault()
-    navigator.clipboard.readText().then(async (text) => {
-      try {
-        const data = JSON.parse(text)
-        if (!data?.avnacClipboard || !Array.isArray(data.objects) || !data.objects.length) return
-        const enlivened = await (mod.util as any).enlivenObjects(data.objects)
-        if (!enlivened.length) return
-        canvas.discardActiveObject()
-        const offset = 40
-        for (const obj of enlivened) {
-          obj.set({ left: (obj.left ?? 0) + offset, top: (obj.top ?? 0) + offset })
-          obj.setCoords()
-          canvas.add(obj)
-        }
-        if (enlivened.length === 1) {
-          canvas.setActiveObject(enlivened[0])
-        } else {
-          const sel = new mod.ActiveSelection(enlivened, { canvas })
-          canvas.setActiveObject(sel)
-        }
-        canvas.requestRenderAll()
-        schedulePersist(canvas)
-      } catch {}
-    }).catch(() => {})
+    void handlePaste(canvas, mod)
     return
   }
 

@@ -9,7 +9,7 @@
       ref="panelRef"
       class="absolute z-50 avnac-popover"
       :class="openUpward ? 'bottom-full mb-2' : 'top-full mt-2'"
-      :style="{ transform: `translateX(calc(-50% + ${shiftX}px))`, left: '50%' }"
+      style="left: 50%; margin-left: -110px;"
     >
       <div class="flex items-center gap-2 mb-3">
         <label class="text-xs text-[var(--fg-subtle,#737373)] w-20">Width</label>
@@ -47,7 +47,7 @@ const open = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
 const panelRef = ref<HTMLElement | null>(null)
 
-const { openUpward, shiftX, update } = useViewportPopover(120)
+const { openUpward, update } = useViewportPopover(120)
 const { attach, detach } = useClickOutside(() => [rootRef.value, panelRef.value], () => { open.value = false })
 
 const displayWidth = computed(() => Math.max(props.strokeWidthMin, Math.min(props.strokeWidthMax, Math.round(props.strokeWidthPx))))

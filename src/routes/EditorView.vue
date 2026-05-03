@@ -154,7 +154,7 @@ import InfographicPanel from '#/components/infographics/InfographicPanel.vue'
 import DiagramPanel from '#/components/diagrams/DiagramPanel.vue'
 import type { EditorLayerRow } from '#/components/panels/EditorLayersPanel.vue'
 import type { EditorSidebarPanelId } from '#/lib/editor-sidebar-panel-layout'
-import type { AvnacDocumentV1 } from '#/lib/avnac-document'
+import { cloneAvnacPlain, type AvnacDocumentV1 } from '#/lib/avnac-document'
 import type { BgValue } from '#/lib/bg-value'
 import type { FabricShadowUi } from '#/lib/avnac-fabric-shadow'
 import type { TextFormatToolbarValues } from '#/stores/canvas'
@@ -243,9 +243,9 @@ async function openSelectedSmartObjectInPanel(panel: 'infographics' | 'diagrams'
   suppressSmartStoreRender = true
   try {
     if (panel === 'infographics' && isInfographicSmartObject(info)) {
-      infographicsStore.openEditor(info.id, structuredClone(info.data.source as AvnacInfographicData))
+      infographicsStore.openEditor(info.id, cloneAvnacPlain(info.data.source as AvnacInfographicData))
     } else if (panel === 'diagrams' && isDiagramSmartObject(info)) {
-      diagramsStore.openEditor(info.id, structuredClone(info.data.source as AvnacDiagramData))
+      diagramsStore.openEditor(info.id, cloneAvnacPlain(info.data.source as AvnacDiagramData))
     }
   } finally {
     queueMicrotask(() => {
@@ -277,9 +277,9 @@ function onSmartObjectChanged(event: { id?: string; data?: AvnacSmartObjectData 
   suppressSmartStoreRender = true
   try {
     if (event.id === infographicsStore.editingId && 'items' in event.data.source) {
-      infographicsStore.updateData(structuredClone(event.data.source as AvnacInfographicData))
+      infographicsStore.updateData(cloneAvnacPlain(event.data.source as AvnacInfographicData))
     } else if (event.id === diagramsStore.editingId && 'nodes' in event.data.source) {
-      diagramsStore.updateData(structuredClone(event.data.source as AvnacDiagramData))
+      diagramsStore.updateData(cloneAvnacPlain(event.data.source as AvnacDiagramData))
     }
   } finally {
     queueMicrotask(() => {
@@ -611,7 +611,7 @@ async function onInsertChart(data: AvnacChartData) {
     originY: 'center',
     scaleX: targetW / (img.width ?? targetW),
     scaleY: targetH / (img.height ?? targetH),
-    avnacChart: structuredClone(data),
+    avnacChart: cloneAvnacPlain(data),
     avnacGroupKind: 'chart',
     avnacLayerName: 'Chart',
   } as any)
@@ -619,7 +619,7 @@ async function onInsertChart(data: AvnacChartData) {
   canvas.add(img)
   canvas.setActiveObject(img)
   canvas.requestRenderAll()
-  chartsStore.openChartEditor(id, structuredClone(data))
+  chartsStore.openChartEditor(id, cloneAvnacPlain(data))
   activePanel.value = 'charts'
 }
 
@@ -648,7 +648,7 @@ watch(() => chartsStore.renderRev, async () => {
   if (!data) return
   const active = findChartObject(chartsStore.editingChartId)
   if (!active?.avnacChart) return
-  active.avnacChart = structuredClone(data)
+  active.avnacChart = cloneAvnacPlain(data)
   const w = (active.width ?? 400) * (active.scaleX ?? 1)
   const h = (active.height ?? 300) * (active.scaleY ?? 1)
   const { renderChartToDataUrl } = await import('#/composables/useChartRenderer')

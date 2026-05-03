@@ -4,7 +4,7 @@ import { installAvnacObjectCanvasBlur } from '#/lib/avnac-object-blur'
 import { installFabricSelectionChrome, attachFabricHoverOutline } from '#/lib/fabric-selection-chrome'
 import { useCanvasStore } from '#/stores/canvas'
 import { useHistoryStore } from '#/stores/history'
-import { captureAvnacDocument, OBJECT_SERIAL_KEYS } from '#/lib/avnac-document'
+import { captureAvnacDocument, cloneAvnacPlain, OBJECT_SERIAL_KEYS } from '#/lib/avnac-document'
 import { linearGradientForBox } from '#/lib/fabric-linear-gradient'
 import { getAvnacShapeMeta, isAvnacStrokeLineLike } from '#/lib/avnac-shape-meta'
 import { installArrowEndpointControls } from '#/lib/fabric-line-arrow-controls'
@@ -124,7 +124,7 @@ export function useCanvasInit(
       autosaveTimer = null
     }
     lastHistoryJson = JSON.stringify(doc)
-    historyStore.init(structuredClone(doc))
+    historyStore.init(cloneAvnacPlain(doc))
   }
 
   async function runWithoutHistory<T>(fn: () => T | Promise<T>): Promise<T> {

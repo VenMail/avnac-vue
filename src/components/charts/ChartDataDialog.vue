@@ -34,6 +34,7 @@
 import { ref, watch } from 'vue'
 import { useChartsStore } from '#/stores/charts'
 import ChartDataEditor from './ChartDataEditor.vue'
+import { cloneAvnacPlain } from '#/lib/avnac-document'
 import type { AvnacChartData } from '#/lib/avnac-chart-data'
 
 const store = useChartsStore()
@@ -43,7 +44,7 @@ const draftData = ref<AvnacChartData | null>(null)
 watch(
   () => store.editingChartData,
   (data) => {
-    if (data) draftData.value = structuredClone(data)
+    if (data) draftData.value = cloneAvnacPlain(data)
   },
   { immediate: true },
 )

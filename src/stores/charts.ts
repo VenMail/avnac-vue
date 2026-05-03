@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, toRaw } from 'vue'
+import { cloneAvnacPlain } from '#/lib/avnac-document'
 import type { AvnacChartData } from '#/lib/avnac-chart-data'
 
 export const useChartsStore = defineStore('charts', () => {
@@ -10,7 +11,7 @@ export const useChartsStore = defineStore('charts', () => {
 
   function openChartEditor(id: string, data: AvnacChartData) {
     editingChartId.value = id
-    editingChartData.value = structuredClone(toRaw(data))
+    editingChartData.value = cloneAvnacPlain(toRaw(data))
   }
 
   function closeChartEditor() {

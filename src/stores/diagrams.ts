@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { cloneAvnacPlain } from '#/lib/avnac-document'
 import type { AvnacDiagramData } from '#/lib/avnac-diagram'
 
 export const useDiagramsStore = defineStore('diagrams', () => {
@@ -11,7 +12,7 @@ export const useDiagramsStore = defineStore('diagrams', () => {
 
   function openEditor(id: string, data: AvnacDiagramData) {
     editingId.value = id
-    editingData.value = structuredClone(data)
+    editingData.value = cloneAvnacPlain(data)
     dataMap.value.set(id, data)
   }
 

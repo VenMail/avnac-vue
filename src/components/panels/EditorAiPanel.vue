@@ -195,7 +195,7 @@ function getToken(): string | null {
 function resolveApiUrl(): string {
   if (props.apiUrl) return props.apiUrl
   const base = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8000/api/v1'
-  return `${base}/ai/generate-story`
+  return `${base}/ai/generate-slides`
 }
 
 interface StoryBlock {
@@ -371,6 +371,7 @@ async function generate() {
       headers,
       body: JSON.stringify({
         prompt: prompt.value.trim(),
+        slide_count: sceneCount.value,
         scene_count: sceneCount.value,
         style: style.value,
       }),

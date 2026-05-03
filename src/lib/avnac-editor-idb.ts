@@ -1,4 +1,4 @@
-import type { AvnacDocumentV1 } from './avnac-document'
+import { cloneAvnacPlain, type AvnacDocumentV1 } from './avnac-document'
 import type { VectorBoardDocument } from './avnac-vector-board-document'
 import {
   clearAvnacVectorBoardStorage,
@@ -153,10 +153,7 @@ export async function idbDuplicateDocument(sourceId: string): Promise<string | n
   const newId = crypto.randomUUID()
   const baseName = row.name?.trim() || 'Untitled'
   const name = `${baseName} copy`
-  const docClone: AvnacDocumentV1 =
-    typeof structuredClone === 'function'
-      ? structuredClone(row.document)
-      : (JSON.parse(JSON.stringify(row.document)) as AvnacDocumentV1)
+  const docClone: AvnacDocumentV1 = cloneAvnacPlain(row.document)
   await idbPutDocument(newId, docClone, { name })
 
   const boards = loadVectorBoards(sourceId)

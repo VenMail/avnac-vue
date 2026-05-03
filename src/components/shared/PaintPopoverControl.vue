@@ -14,7 +14,7 @@
       ref="panelRef"
       class="absolute z-50"
       :class="openUpward ? 'bottom-full mb-2' : 'top-full mt-2'"
-      :style="{ transform: `translateX(calc(-50% + ${shiftX}px))`, left: '50%' }"
+      style="left: 50%; margin-left: -110px;"
     >
       <BackgroundPopover :value="value" @change="onBgChange" />
     </div>
@@ -41,7 +41,7 @@ const open = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
 const panelRef = ref<HTMLElement | null>(null)
 
-const { openUpward, shiftX, update } = useViewportPopover(440)
+const { openUpward, update } = useViewportPopover(440)
 const { attach, detach } = useClickOutside(() => [rootRef.value, panelRef.value], () => { open.value = false })
 
 const swatchStyle = computed(() => bgValueToSwatch(props.value))

@@ -180,6 +180,22 @@ export function useToolbarSync(
     }
   }
 
+  function syncSelectionStroke() {
+    const canvas = fabricCanvas.value
+    if (!canvas) { canvasStore.selectionOutlineStrokeWidth = 1; return }
+    const active = canvas.getActiveObject()
+    if (!active) { canvasStore.selectionOutlineStrokeWidth = 1; return }
+    if ('multiSelectionStacking' in active) {
+      const objs = canvas.getActiveObjects()
+      if (!objs.length) { canvasStore.selectionOutlineStrokeWidth = 1; return }
+      // Average stroke width across selection
+      const sum = objs.reduce((acc, o) => acc + (typeof o.strokeWidth === 'number' ? o.strokeWidth : 1), 0)
+      canvasStore.selectionOutlineStrokeWidth = Math.round(sum / objs.length)
+      return
+    }
+    canvasStore.selectionOutlineStrokeWidth = typeof active.strokeWidth === 'number' ? active.strokeWidth : 1
+  }
+
   function syncAnimationToolbar() {
     const canvas = fabricCanvas.value
     if (!canvas) { canvasStore.animationToolbarModel = null; return }
@@ -224,6 +240,7 @@ export function useToolbarSync(
     syncSelectionBlur()
     syncSelectionOpacity()
     syncSelectionShadow()
+    syncSelectionStroke()
     syncAnimationToolbar()
   }
 

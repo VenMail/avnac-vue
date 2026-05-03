@@ -57,7 +57,7 @@ export const useCanvasStore = defineStore('canvas', () => {
   const imageCornerToolbar = ref<{ radius: number; max: number } | null>(null)
   const selectionBlurPct = ref(0)
   const selectionOpacityPct = ref(100)
-  const selectionOutlineStrokeWidth = ref(0)
+  const selectionOutlineStrokeWidth = ref(1)
   const selectionOutlineStrokePaint = ref<BgValue>({ type: 'solid', color: '#000000' })
   const selectionShadowUi = ref<FabricShadowUi>({ ...DEFAULT_SHADOW_UI })
   const selectionShadowActive = ref(false)
@@ -76,7 +76,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     imageCornerToolbar.value = null
     selectionBlurPct.value = 0
     selectionOpacityPct.value = 100
-    selectionOutlineStrokeWidth.value = 0
+    selectionOutlineStrokeWidth.value = 1
     transformDimensionUi.value = null
     selectionShadowActive.value = false
     animationToolbarModel.value = null

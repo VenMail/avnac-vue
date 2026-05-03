@@ -168,7 +168,7 @@ import { applyTextFormatChange } from '#/lib/apply-text-format'
 import { applyFabricImageMask, type ImageMaskKind } from '#/lib/fabric-image-mask'
 import { applyFabricImageSourceCrop, getFabricImageSourceCrop } from '#/lib/avnac-fabric-image-crop'
 import { layoutArrowGroup, arrowDisplayColor } from '#/lib/avnac-stroke-arrow'
-import { getAvnacShapeMeta, setAvnacShapeMeta, type ArrowLineStyle, type ArrowPathType } from '#/lib/avnac-shape-meta'
+import { avnacStrokeLineHeadType, getAvnacShapeMeta, isArrowHeadVisible, setAvnacShapeMeta, type ArrowHeadType, type ArrowLineStyle, type ArrowPathType } from '#/lib/avnac-shape-meta'
 import { getAvnacStroke } from '#/lib/avnac-fill-paint'
 import type { AvnacChartData } from '#/lib/avnac-chart-data'
 import { ensureAvnacLayerId } from '#/lib/ensure-avnac-layer-id'
@@ -439,6 +439,7 @@ function onApplyImageCrop(rect: { cropX: number; cropY: number; width: number; h
 function updateActiveLine(partial: {
   arrowPathType?: ArrowPathType
   arrowHead?: number
+  arrowHeadType?: ArrowHeadType
   arrowLineStyle?: ArrowLineStyle
 }) {
   const canvas = getCanvas()
@@ -448,18 +449,21 @@ function updateActiveLine(partial: {
     if (!(active instanceof mod.Group)) return
     const meta = getAvnacShapeMeta(active)
     if (!meta?.arrowEndpoints || (meta.kind !== 'line' && meta.kind !== 'arrow')) return
-    const nextHead = partial.arrowHead ?? (meta.kind === 'arrow' ? (meta.arrowHead ?? 1) : 0)
+    const nextHeadType = partial.arrowHeadType ?? avnacStrokeLineHeadType(meta)
+    const nextHead = partial.arrowHead ?? (isArrowHeadVisible(nextHeadType, meta.arrowHead) ? (meta.arrowHead ?? 1) || 1 : 0)
     const nextMeta = {
       ...meta,
       ...partial,
-      kind: nextHead > 0 ? 'arrow' as const : 'line' as const,
+      kind: isArrowHeadVisible(nextHeadType, nextHead) ? 'arrow' as const : 'line' as const,
       arrowHead: nextHead,
+      arrowHeadType: nextHeadType,
     }
     const stroke = getAvnacStroke(active)
     const color = stroke?.type === 'solid' ? stroke.color : arrowDisplayColor(active)
     layoutArrowGroup(active, meta.arrowEndpoints.x1, meta.arrowEndpoints.y1, meta.arrowEndpoints.x2, meta.arrowEndpoints.y2, {
       strokeWidth: nextMeta.arrowStrokeWidth ?? 6,
       headFrac: nextHead,
+      headType: nextHeadType,
       color,
       lineStyle: nextMeta.arrowLineStyle,
       roundedEnds: nextMeta.arrowRoundedEnds,
@@ -477,8 +481,8 @@ function onLinePathTypeChange(v: ArrowPathType) {
   updateActiveLine({ arrowPathType: v })
 }
 
-function onLineArrowHeadChange(v: 'none' | 'arrow') {
-  updateActiveLine({ arrowHead: v === 'arrow' ? 1 : 0 })
+function onLineArrowHeadChange(v: ArrowHeadType) {
+  updateActiveLine({ arrowHead: v === 'none' ? 0 : 1, arrowHeadType: v })
 }
 
 function onLineStyleChange(v: ArrowLineStyle) {

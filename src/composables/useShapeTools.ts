@@ -185,12 +185,14 @@ export function useShapeTools(
     const g = createArrowGroup(mod, x1, y1, x2, y2, {
       strokeWidth: strokeW,
       headFrac: 0,
+      headType: 'none',
       color: bgValueSolidFallback(paint),
     })
     setAvnacStroke(g, paint)
     setAvnacShapeMeta(g, {
       kind: 'line',
       arrowHead: 0,
+      arrowHeadType: 'none',
       arrowEndpoints: { x1, y1, x2, y2 },
       arrowStrokeWidth: strokeW,
       arrowLineStyle: 'solid',
@@ -224,12 +226,14 @@ export function useShapeTools(
     const g = createArrowGroup(mod, x1, y1, x2, y2, {
       strokeWidth: strokeW,
       headFrac: head,
+      headType: 'triangle',
       color: bgValueSolidFallback(paint),
     })
     setAvnacStroke(g, paint)
     setAvnacShapeMeta(g, {
       kind: 'arrow',
       arrowHead: head,
+      arrowHeadType: 'triangle',
       arrowEndpoints: { x1, y1, x2, y2 },
       arrowStrokeWidth: strokeW,
       arrowLineStyle: 'solid',
@@ -279,6 +283,7 @@ export function useShapeTools(
     const g = createArrowGroup(mod, x1, y1, x2, y2, {
       strokeWidth: strokeW,
       headFrac: 0,
+      headType: 'none',
       color: bgValueSolidFallback(paint),
       pathType: 'curved',
       curveBulge,
@@ -288,6 +293,7 @@ export function useShapeTools(
     setAvnacShapeMeta(g, {
       kind: 'line',
       arrowHead: 0,
+      arrowHeadType: 'none',
       arrowEndpoints: { x1, y1, x2, y2 },
       arrowStrokeWidth: strokeW,
       arrowLineStyle: 'solid',
@@ -428,6 +434,7 @@ export function useShapeTools(
     const g = createArrowGroup(mod, first.x, first.y, last.x, last.y, {
       strokeWidth: strokeW,
       headFrac: head,
+      headType: head > 0 ? 'triangle' : 'none',
       color,
       pathType: isCurved ? 'curved' : 'straight',
       curveBulge: isCurved ? effectiveBulge : undefined,
@@ -437,6 +444,7 @@ export function useShapeTools(
     setAvnacShapeMeta(g, {
       kind: kind === 'curved-line' ? 'line' : kind,
       arrowHead: head,
+      arrowHeadType: head > 0 ? 'triangle' : 'none',
       arrowEndpoints: { x1: first.x, y1: first.y, x2: last.x, y2: last.y },
       arrowStrokeWidth: strokeW,
       arrowLineStyle: 'solid',

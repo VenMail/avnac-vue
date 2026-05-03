@@ -38,6 +38,7 @@ function getLineStyle(spPr: Element | null, themeColors: Map<string, string>): {
   color: string
   width: number
   isArrow: boolean
+  arrowHeadType: 'none' | 'triangle' | 'open' | 'circle' | 'diamond'
   dashType: string
 } {
   const ln = q(spPr, 'ln')
@@ -48,14 +49,20 @@ function getLineStyle(spPr: Element | null, themeColors: Map<string, string>): {
   // Check for arrow heads
   const tailEnd = q(ln, 'tailEnd')
   const headEnd = q(ln, 'headEnd')
-  const isArrow = (tailEnd?.getAttribute('type') ?? 'none') !== 'none'
-    || (headEnd?.getAttribute('type') ?? 'none') !== 'none'
+  const rawHeadType = headEnd?.getAttribute('type') ?? tailEnd?.getAttribute('type') ?? 'none'
+  const isArrow = rawHeadType !== 'none'
+  const arrowHeadType =
+    rawHeadType === 'oval' ? 'circle'
+      : rawHeadType === 'diamond' ? 'diamond'
+      : rawHeadType === 'triangle' || rawHeadType === 'arrow' ? 'triangle'
+      : rawHeadType === 'stealth' ? 'open'
+      : isArrow ? 'triangle' : 'none'
 
   // Dash type
   const prstDash = q(ln, 'prstDash')
   const dash = prstDash?.getAttribute('val') ?? 'solid'
 
-  return { color, width, isArrow, dashType: dash }
+  return { color, width, isArrow, arrowHeadType, dashType: dash }
 }
 
 // Parse a <p:cxnSp> connector element into FabricObjectSpec
@@ -70,7 +77,7 @@ export function parseCxnSp(
 
   const { x, y, w, h } = getOffPos(spPr, slideW, slideH)
   const angle = getAngle(spPr)
-  const { color, width, isArrow } = getLineStyle(spPr, themeColors)
+  const { color, width, isArrow, arrowHeadType } = getLineStyle(spPr, themeColors)
 
   return {
     type: 'Group',
@@ -79,7 +86,7 @@ export function parseCxnSp(
     width: Math.max(1, w),
     height: Math.max(1, h),
     angle,
-    avnacShape: { kind: isArrow ? 'arrow' : 'line' },
+    avnacShape: { kind: isArrow ? 'arrow' : 'line', arrowHead: isArrow ? 1 : 0, arrowHeadType },
     avnacStroke: { width, paint: { type: 'solid', color } },
     scaleX: 1,
     scaleY: 1,
@@ -105,7 +112,7 @@ export function parseLineSp(
 
   const { x, y, w, h } = getOffPos(spPr, slideW, slideH)
   const angle = getAngle(spPr)
-  const { color, width, isArrow } = getLineStyle(spPr, themeColors)
+  const { color, width, isArrow, arrowHeadType } = getLineStyle(spPr, themeColors)
 
   return {
     type: 'Group',
@@ -114,7 +121,7 @@ export function parseLineSp(
     width: Math.max(1, w),
     height: Math.max(1, h),
     angle,
-    avnacShape: { kind: isArrow ? 'arrow' : 'line' },
+    avnacShape: { kind: isArrow ? 'arrow' : 'line', arrowHead: isArrow ? 1 : 0, arrowHeadType },
     avnacStroke: { width, paint: { type: 'solid', color } },
     scaleX: 1,
     scaleY: 1,

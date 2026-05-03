@@ -2,13 +2,13 @@
   <div
     v-if="open"
     data-avnac-chrome
-    class="pointer-events-auto fixed z-40 flex w-[min(100vw-1.5rem,340px)] max-h-[min(92dvh,720px)] flex-col overflow-hidden rounded-3xl border border-black/[0.08] bg-white/95 backdrop-blur-md"
+    class="avnac-panel avnac-images-panel pointer-events-auto fixed z-40 flex w-[min(100vw-1.5rem,340px)] max-h-[min(92dvh,720px)] flex-col overflow-hidden rounded-3xl border border-black/[0.08] bg-white/95 backdrop-blur-md"
     :style="panelStyle"
     role="dialog"
     aria-label="Images"
   >
     <!-- Header -->
-    <div class="flex shrink-0 items-start justify-between border-b border-black/[0.06] px-3 py-2">
+    <div class="avnac-panel__header flex shrink-0 items-start justify-between border-b border-black/[0.06] px-3 py-2">
       <div class="min-w-0">
         <div class="text-sm font-semibold text-neutral-800">Images</div>
         <p class="mt-0.5 text-[11px] text-neutral-500">
@@ -24,7 +24,7 @@
       </div>
       <button
         type="button"
-        class="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-600 hover:bg-black/[0.06]"
+        class="avnac-panel__close flex h-8 w-8 items-center justify-center rounded-lg text-neutral-600 hover:bg-black/[0.06]"
         aria-label="Close images"
         @click="emit('close')"
       >
@@ -36,7 +36,7 @@
 
     <!-- Search + grid -->
     <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div class="shrink-0 border-b border-black/[0.06] p-2">
+      <div class="avnac-panel__controls shrink-0 border-b border-black/[0.06] p-2">
         <label class="relative block">
           <span class="sr-only">Search Unsplash</span>
           <svg class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
@@ -47,7 +47,7 @@
             type="search"
             placeholder="Search Unsplash…"
             autocomplete="off"
-            class="h-10 w-full rounded-xl border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/45"
+            class="avnac-panel__input h-10 w-full rounded-xl border border-black/[0.08] bg-white pl-9 pr-3 text-[13px] text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/45"
           />
         </label>
         <div class="mt-2 grid grid-cols-[1fr_auto] gap-2">
@@ -55,19 +55,19 @@
             v-model="manualUrl"
             type="url"
             placeholder="Paste image URL"
-            class="h-9 rounded-xl border border-black/[0.08] bg-white px-3 text-[12px] text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/45"
+            class="avnac-panel__input h-9 rounded-xl border border-black/[0.08] bg-white px-3 text-[12px] text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/45"
             @keydown.enter.prevent="addManualUrl"
           />
           <button
             type="button"
-            class="rounded-xl border border-black/[0.08] bg-neutral-900 px-3 text-[12px] font-semibold text-white disabled:opacity-40"
+            class="avnac-panel__dark-button rounded-xl border border-black/[0.08] bg-neutral-900 px-3 text-[12px] font-semibold text-white disabled:opacity-40"
             :disabled="addingManual"
             @click="addManualUrl"
           >Add</button>
         </div>
         <button
           type="button"
-          class="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-black/[0.14] bg-neutral-50 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
+          class="avnac-panel__soft-button mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-black/[0.14] bg-neutral-50 text-[12px] font-medium text-neutral-700 hover:bg-neutral-100"
           @click="pickLocalFile"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -148,7 +148,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onBeforeUnmount } from 'vue'
 import type { UnsplashPhoto } from '#/lib/unsplash-api'
 import {
   fetchUnsplashPopular,
@@ -191,6 +191,12 @@ const addingManual = ref(false)
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let currentFetch: { cancelled: boolean } | null = null
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape' || !props.open) return
+  event.preventDefault()
+  emit('close')
+}
 
 watch(input, () => {
   if (debounceTimer) clearTimeout(debounceTimer)
@@ -241,6 +247,8 @@ watch([() => props.open, committedQ, page], ([open]) => {
 }, { immediate: true })
 
 watch(() => props.open, (open) => {
+  if (open) window.addEventListener('keydown', onKeydown)
+  else window.removeEventListener('keydown', onKeydown)
   if (!open) {
     input.value = ''
     committedQ.value = ''
@@ -251,6 +259,10 @@ watch(() => props.open, (open) => {
     addingId.value = null
     if (currentFetch) currentFetch.cancelled = true
   }
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
 })
 
 function loadMore() {
@@ -322,3 +334,64 @@ function pickLocalFile() {
   input.click()
 }
 </script>
+
+<style scoped>
+.avnac-panel {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: min(calc(100vw - 1.5rem), 340px);
+  max-height: min(92dvh, 720px);
+  overflow: hidden;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.98);
+  color: #171717;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.22);
+  backdrop-filter: blur(12px);
+}
+.avnac-panel__header,
+.avnac-panel__controls {
+  border-color: rgba(17, 24, 39, 0.1);
+  background: #ffffff;
+}
+.avnac-panel__close {
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  background: #ffffff;
+  color: #404040;
+  cursor: pointer;
+}
+.avnac-panel__close:hover {
+  background: #f5f5f5;
+  color: #111827;
+}
+.avnac-panel__input {
+  border: 1px solid rgba(17, 24, 39, 0.14);
+  background: #ffffff;
+  color: #171717;
+}
+.avnac-panel__input::placeholder {
+  color: #737373;
+}
+.avnac-panel__input:focus {
+  border-color: var(--accent, #6366f1);
+  outline: 2px solid color-mix(in srgb, var(--accent, #6366f1) 28%, transparent);
+}
+.avnac-panel__dark-button {
+  min-width: 52px;
+  border: 0;
+  background: #171717;
+  color: #ffffff;
+  cursor: pointer;
+}
+.avnac-panel__soft-button {
+  border-color: rgba(17, 24, 39, 0.18);
+  background: #fafafa;
+  color: #404040;
+  cursor: pointer;
+}
+.avnac-panel__soft-button:hover {
+  background: #f5f5f5;
+  color: #111827;
+}
+</style>

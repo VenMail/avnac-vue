@@ -63,11 +63,14 @@ export type ArrowLineStyle = 'solid' | 'dashed' | 'dotted'
 
 export type ArrowPathType = 'straight' | 'curved'
 
+export type ArrowHeadType = 'none' | 'triangle' | 'open' | 'circle' | 'diamond'
+
 export type AvnacShapeMeta = {
   kind: AvnacShapeKind
   polygonSides?: number
   starPoints?: number
   arrowHead?: number
+  arrowHeadType?: ArrowHeadType
   /** Scene-space tail → tip; kept in sync when editing arrow endpoints. */
   arrowEndpoints?: { x1: number; y1: number; x2: number; y2: number }
   arrowStrokeWidth?: number
@@ -111,5 +114,15 @@ export function isAvnacStrokeLineLike(
 
 /** `layoutArrowGroup` head fraction: lines are always headless; arrows use `arrowHead`. */
 export function avnacStrokeLineHeadFrac(meta: AvnacShapeMeta): number {
-  return meta.kind === 'line' ? 0 : (meta.arrowHead ?? 1)
+  return avnacStrokeLineHeadType(meta) === 'none' ? 0 : (meta.arrowHead ?? 1)
+}
+
+export function avnacStrokeLineHeadType(meta: AvnacShapeMeta): ArrowHeadType {
+  if (meta.arrowHeadType) return meta.arrowHeadType
+  if (meta.kind === 'arrow' || (meta.arrowHead ?? 0) > 0) return 'triangle'
+  return 'none'
+}
+
+export function isArrowHeadVisible(type: ArrowHeadType | undefined, head = 0): boolean {
+  return (type ?? (head > 0 ? 'triangle' : 'none')) !== 'none'
 }

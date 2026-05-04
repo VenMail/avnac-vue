@@ -37,11 +37,14 @@
     "@types/qrcode": "^1.5.5",
     "@vitejs/plugin-vue": "^5.2.3",
     "@vue/test-utils": "^2.4.6",
+    "fabric": "^6.6.1",
     "jsdom": "^25.0.1",
+    "pinia": "^2.0.0",
     "tailwindcss": "^4.1.8",
     "typescript": "~5.8.3",
     "vite": "^8.0.10",
     "vitest": "^3.2.4",
+    "vue": "^3.5.0",
     "vue-tsc": "^2.2.10"
   }
 }

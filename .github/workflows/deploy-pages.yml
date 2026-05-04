@@ -29,10 +29,13 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        # Install all deps + peer deps (vue, pinia, fabric are peerDeps not in devDeps)
+        run: |
+          npm ci --legacy-peer-deps
+          npm install --no-save --legacy-peer-deps vue@^3.5.0 pinia@^2.0.0 fabric@^6.6.1
 
       - name: Build for GitHub Pages
-        # Use vite build directly to skip vue-tsc type checking (type errors are dev-time only)
+        # Skip vue-tsc (type errors are dev-time only), run vite build directly
         run: npx vite build
         env:
           GITHUB_PAGES: 'true'

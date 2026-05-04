@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Avnac Vue</title>
+    <script>
+      // GitHub Pages SPA redirect
+      // Encode the path as a query string so GitHub redirects to index.html
+      // which then decodes it and restores the correct URL for the Vue router.
+      var segmentCount = 1; // 1 for repos at /repo-name/
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + segmentCount).join('/') + '/?/' +
+        l.pathname.slice(1).split('/').slice(segmentCount).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    <\/script>
+  </head>
+  <body>
+  </body>
+</html>

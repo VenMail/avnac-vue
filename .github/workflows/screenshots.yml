@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -34,11 +36,9 @@ jobs:
             const page = await browser.newPage();
             await page.setViewportSize({ width: 1280, height: 800 });
             const base = 'https://venmail.github.io/avnac-vue';
-            // Editor view
             await page.goto(base + '/create', { waitUntil: 'networkidle' });
             await page.waitForTimeout(3000);
             await page.screenshot({ path: 'public/screenshots/editor.png', fullPage: false });
-            // Try to capture with toolbar visible
             await page.screenshot({ path: 'public/screenshots/toolbar.png', fullPage: false });
             await browser.close();
             console.log('Screenshots captured!');
@@ -51,4 +51,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add public/screenshots/
           git diff --cached --quiet || git commit -m "chore: update demo screenshots [skip ci]"
+          git pull --rebase origin main
           git push

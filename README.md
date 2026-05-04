@@ -29,22 +29,7 @@ The demo loads the full editor in the browser — no install needed. You can try
 
 ## Screenshots
 
-**Editor — blank canvas with full toolbar**
-![Editor overview](https://raw.githubusercontent.com/VenMail/avnac-vue/main/public/screenshots/editor-overview.png)
-
-**Text tool with formatting toolbar**
-![Text tool](https://raw.githubusercontent.com/VenMail/avnac-vue/main/public/screenshots/text-tool.png)
-
-**Image search — powered by Unsplash**
-![Image panel](https://raw.githubusercontent.com/VenMail/avnac-vue/main/public/screenshots/image-panel.png)
-
-**Chart picker — Bar, Line, Pie, Radar and more**
-![Chart panel](https://raw.githubusercontent.com/VenMail/avnac-vue/main/public/screenshots/chart-panel.png)
-
-**Diagram & infographic templates**
-![Diagrams panel](https://raw.githubusercontent.com/VenMail/avnac-vue/main/public/screenshots/diagrams-panel.png)
-
-> Screenshots are auto-captured from the live demo by the [Capture Demo Screenshots](.github/workflows/screenshots.yml) workflow on every deploy.
+![Avnac Vue – Editor with toolbar, panels and canvas](https://raw.githubusercontent.com/VenMail/avnac-vue/main/avnac-vue.png)
 
 ---
 

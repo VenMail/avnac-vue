@@ -26,13 +26,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       - name: Install dependencies
-        # Install all deps + peer deps (vue, pinia, fabric are peerDeps not in devDeps)
-        run: |
-          npm ci --legacy-peer-deps
-          npm install --no-save --legacy-peer-deps vue@^3.5.0 pinia@^2.0.0 fabric@^6.6.1
+        # Use npm install (not ci) so lockfile mismatch from web edits doesn't block build
+        run: npm install --legacy-peer-deps
 
       - name: Build for GitHub Pages
         # Skip vue-tsc (type errors are dev-time only), run vite build directly

@@ -653,10 +653,14 @@ watch(() => chartsStore.renderRev, async () => {
   const active = findChartObject(chartsStore.editingChartId)
   if (!active?.avnacChart) return
   active.avnacChart = cloneAvnacPlain(data)
-  const w = (active.width ?? 400) * (active.scaleX ?? 1)
-  const h = (active.height ?? 300) * (active.scaleY ?? 1)
+  // Use intrinsic PNG dimensions (not display size = width * scaleX).
+  // setSrc replaces the image element and updates width/height to the new PNG's
+  // natural dimensions; if we render at width*scaleX, the new intrinsic size
+  // becomes the old display size, which then gets multiplied by scaleX again → doubled.
+  const w = Math.max(200, Math.round(active.width ?? 400))
+  const h = Math.max(150, Math.round(active.height ?? 300))
   const { renderChartToDataUrl } = await import('#/composables/useChartRenderer')
-  const url = await renderChartToDataUrl(data, Math.max(200, w), Math.max(150, h))
+  const url = await renderChartToDataUrl(data, w, h)
   try {
     await active.setSrc?.(url, { crossOrigin: 'anonymous' })
   } catch (err) {

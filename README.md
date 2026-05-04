@@ -16,34 +16,35 @@ It keeps the browser-first canvas editing model while exposing Vue single-file c
 The demo loads the full editor in the browser — no install needed. You can try:
 - Slide editing with canvas objects (text, shapes, images)
 - AI-assisted slide generation
-- Image search and file uploads
-- Charts, diagrams, and infographic blocks
-- Present mode and animations
+- Image search (Unsplash) and file uploads
+- Charts: Bar, Stacked Bar, Line, Area, Pie, Doughnut, Scatter, Radar
+- Diagrams and infographic templates: Pyramid, Funnel, Timeline, Chevron, Venn, Cycle, Accordion, 2×2 Matrix
+- Present mode and animations (motion.dev)
 - PPTX import/export
 - Cross-canvas copy/paste from the system clipboard
 
-> The demo is auto-deployed from the `main` branch on every push via GitHub Actions.
+> Auto-deployed from `main` on every push via GitHub Actions.
 
 ---
 
 ## Screenshots
 
-> _Screenshots will be added once the live demo is deployed. Run `npm run dev` locally to capture them, then place them in `public/screenshots/` and update the paths below._
+**Editor — blank canvas with full toolbar**
+![Editor overview](https://raw.githubusercontent.com/VenMail/avnac-vue/main/public/screenshots/editor-overview.png)
 
-**Editor Overview**
-![Editor overview](https://venmail.github.io/avnac-vue/screenshots/editor-overview.png)
+**Text tool with formatting toolbar**
+![Text tool](https://raw.githubusercontent.com/VenMail/avnac-vue/main/public/screenshots/text-tool.png)
 
-**AI Slide Generation**
-![AI slide generation panel](https://venmail.github.io/avnac-vue/screenshots/ai-panel.png)
+**Image search — powered by Unsplash**
+![Image panel](https://raw.githubusercontent.com/VenMail/avnac-vue/main/public/screenshots/image-panel.png)
 
-**Image Search & Uploads**
-![Image tools panel](https://venmail.github.io/avnac-vue/screenshots/image-panel.png)
+**Chart picker — Bar, Line, Pie, Radar and more**
+![Chart panel](https://raw.githubusercontent.com/VenMail/avnac-vue/main/public/screenshots/chart-panel.png)
 
-**Charts, Diagrams & Infographics**
-![Charts and diagrams](https://venmail.github.io/avnac-vue/screenshots/chart-editor.png)
+**Diagram & infographic templates**
+![Diagrams panel](https://raw.githubusercontent.com/VenMail/avnac-vue/main/public/screenshots/diagrams-panel.png)
 
-**Present Mode**
-![Present mode](https://venmail.github.io/avnac-vue/screenshots/present-mode.png)
+> Screenshots are auto-captured from the live demo by the [Capture Demo Screenshots](.github/workflows/screenshots.yml) workflow on every deploy.
 
 ---
 
@@ -63,10 +64,11 @@ The original [Avnac](https://github.com/akinloluwami/avnac) is a React + Vite pr
 | **Cross-canvas copy/paste** | Not available | Full cross-canvas copy/paste via system clipboard |
 | **Animations** | Not available | `motion.dev` animation runtime, timeline panel, PPTX anim export |
 | **Present mode** | Not available | Full fullscreen present mode with slide navigation |
-| **Charts & diagrams** | Basic chart rendering | Chart data dialog, chart kind sync, diagram & infographic rendering |
-| **PPTX import/export** | Basic PPTX support | Improved PPTX import (images, lines, charts), corrected animation XML export |
-| **Flat-group architecture** | Standard canvas groups | Flat-group model for easier text editing within groups |
-| **Smart objects** | Standard shape editing | Smart object editor with polish — stroke width sync, background popover |
+| **Charts** | Basic chart rendering | Bar, Stacked Bar, Line, Area, Pie, Doughnut, Scatter, Radar with data dialog |
+| **Diagrams & infographics** | Not available | Pyramid, Funnel, Timeline, Chevron, Venn, Cycle, Accordion, 2×2 Matrix |
+| **PPTX import/export** | Basic PPTX support | Improved import (images, lines, charts), corrected animation XML export |
+| **Flat-group architecture** | Standard canvas groups | Flat-group model for direct text editing inside groups |
+| **Smart objects** | Standard shape editing | Smart object editor — stroke width sync, background popover |
 | **Dark mode** | Standard contrast | Editor dark mode contrast fixes tuned for Vue build |
 | **Line endings** | Standard text behavior | Multiple line-ending types in the editor |
 | **Panels UX** | Floating panels (React) | Escape/close behavior, focus handling, improved panel positioning |
@@ -75,17 +77,17 @@ The original [Avnac](https://github.com/akinloluwami/avnac) is a React + Vite pr
 ### New Feature Highlights in Avnac Vue
 
 - **Vue 3 SFC API** — embed the editor in any Vue 3 / VenSuite / Venmail app with minimal setup.
-- **System clipboard integration** — paste plain text and images from the OS clipboard directly onto the canvas (`feat: paste plain text and images from system clipboard`).
-- **Cross-canvas copy/paste** — copy objects and paste them between separate editor instances or browser tabs via the system clipboard.
-- **motion.dev animation runtime** — per-slide and per-object animations with a timeline panel; animations export correctly to PPTX.
+- **System clipboard integration** — paste plain text and images from the OS clipboard directly onto the canvas.
+- **Cross-canvas copy/paste** — copy objects and paste them between separate editor instances or browser tabs.
+- **motion.dev animation runtime** — per-slide and per-object animations; export correctly to PPTX.
 - **Full present mode** — fullscreen slide presentation with keyboard and click navigation.
-- **Chart data dialog** — dedicated UI for editing chart datasets, chart kind selection, and live sync to the canvas.
-- **Diagrams and infographics** — rendering pipeline for diagram and infographic slide blocks.
-- **Improved PPTX pipeline** — corrected animation XML structure, shape ID tracking, chart kind sync, and better image/line import.
-- **Flat-group architecture** — custom canvas group model that allows direct text editing inside grouped objects without ungrouping.
-- **Smart object editor polish** — stroke width sync, background popover positioning, and visual alignment improvements.
-- **Dark mode contrast** — targeted fixes for the editor UI in dark environments.
-- **Resilient AI and network handling** — AI endpoint fixes, improved error recovery so panels don’t break on failed requests.
+- **Chart data dialog** — edit datasets, choose chart kind (Bar/Line/Pie/Radar/etc.), live canvas sync.
+- **Diagrams and infographics** — 8 ready-to-use layout templates (Pyramid, Funnel, Venn, Cycle, etc.).
+- **Improved PPTX pipeline** — corrected animation XML, shape ID tracking, better image/line import.
+- **Flat-group architecture** — direct text editing inside grouped canvas objects without ungrouping.
+- **Smart object editor polish** — stroke width sync, background popover positioning.
+- **Dark mode contrast** — targeted contrast fixes for the editor UI in dark environments.
+- **Resilient AI and network handling** — AI endpoint fixes, improved error recovery in panels.
 
 ---
 
@@ -112,7 +114,7 @@ npm run typecheck
 npm test
 ```
 
-Local dev runs at `http://localhost:5173` with the API proxy forwarding `/api` calls to `http://localhost:3001`.
+Local dev runs at `http://localhost:5173`.
 
 ---
 
@@ -122,6 +124,7 @@ Local dev runs at `http://localhost:5173` with the API proxy forwarding `/api` c
 |---|---|---|
 | `publish.yml` | Push a version tag | Publishes to npm |
 | `deploy-pages.yml` | Push to `main` | Deploys live demo to GitHub Pages |
+| `screenshots.yml` | After each Pages deploy | Captures and commits fresh screenshots |
 
 ---
 

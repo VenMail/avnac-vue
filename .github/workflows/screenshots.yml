@@ -36,12 +36,36 @@ jobs:
             const page = await browser.newPage();
             await page.setViewportSize({ width: 1280, height: 800 });
             const base = 'https://venmail.github.io/avnac-vue';
+            // Editor overview
             await page.goto(base + '/create', { waitUntil: 'networkidle' });
-            await page.waitForTimeout(3000);
-            await page.screenshot({ path: 'public/screenshots/editor.png', fullPage: false });
-            await page.screenshot({ path: 'public/screenshots/toolbar.png', fullPage: false });
+            await page.waitForTimeout(4000);
+            await page.screenshot({ path: 'public/screenshots/editor-overview.png' });
+            // Text tool - click text button if present
+            try {
+              const textBtn = await page.$('[title*="Text"], [aria-label*="text"], button[data-tool="text"]');
+              if (textBtn) { await textBtn.click(); await page.waitForTimeout(1000); }
+            } catch(e) {}
+            await page.screenshot({ path: 'public/screenshots/text-tool.png' });
+            // Image panel
+            try {
+              const imgBtn = await page.$('[title*="Image"], [aria-label*="image"], button[data-tool="image"]');
+              if (imgBtn) { await imgBtn.click(); await page.waitForTimeout(1000); }
+            } catch(e) {}
+            await page.screenshot({ path: 'public/screenshots/image-panel.png' });
+            // Chart panel
+            try {
+              const chartBtn = await page.$('[title*="Chart"], [aria-label*="chart"]');
+              if (chartBtn) { await chartBtn.click(); await page.waitForTimeout(1000); }
+            } catch(e) {}
+            await page.screenshot({ path: 'public/screenshots/chart-panel.png' });
+            // Diagrams panel
+            try {
+              const diagBtn = await page.$('[title*="Diagram"], [aria-label*="diagram"]');
+              if (diagBtn) { await diagBtn.click(); await page.waitForTimeout(1000); }
+            } catch(e) {}
+            await page.screenshot({ path: 'public/screenshots/diagrams-panel.png' });
             await browser.close();
-            console.log('Screenshots captured!');
+            console.log('Screenshots saved to', process.cwd() + '/public/screenshots');
           })();
           EOF
 
@@ -50,6 +74,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add public/screenshots/
-          git diff --cached --quiet || git commit -m "chore: update demo screenshots [skip ci]"
+          git diff --cached --quiet || git commit -m "ci: update demo screenshots [skip ci]"
           git pull --rebase origin main
           git push

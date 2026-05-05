@@ -606,15 +606,15 @@ async function onInsertChart(data: AvnacChartData) {
     import('fabric'),
     import('#/composables/useChartRenderer'),
   ])
-  const url = await renderChartToDataUrl(data, Math.round(targetW), Math.round(targetH))
+  const { url, pngW, pngH } = await renderChartToDataUrl(data, Math.round(targetW), Math.round(targetH))
   const img = await FabricImage.fromURL(url, { crossOrigin: 'anonymous' })
   img.set({
     left: artW / 2,
     top: artH / 2,
     originX: 'center',
     originY: 'center',
-    scaleX: targetW / (img.width ?? targetW),
-    scaleY: targetH / (img.height ?? targetH),
+    scaleX: targetW / pngW,
+    scaleY: targetH / pngH,
     avnacChart: cloneAvnacPlain(data),
     avnacGroupKind: 'chart',
     avnacLayerName: 'Chart',
@@ -660,17 +660,18 @@ watch(() => chartsStore.renderRev, async () => {
   const displayW = Math.max(200, Math.round((active.width ?? 400) * (active.scaleX ?? 1)))
   const displayH = Math.max(150, Math.round((active.height ?? 300) * (active.scaleY ?? 1)))
   const { renderChartToDataUrl } = await import('#/composables/useChartRenderer')
-  const url = await renderChartToDataUrl(data, displayW, displayH)
+  const { url, pngW, pngH } = await renderChartToDataUrl(data, displayW, displayH)
   try {
     await active.setSrc?.(url, { crossOrigin: 'anonymous' })
   } catch (err) {
     console.warn('[avnac] chart re-render failed', err)
     active.set?.('src', url)
   }
-  // Restore scale so display size = displayW × displayH regardless of new intrinsic size.
+  // pngW/pngH are the actual canvas dimensions after Chart.js renders (may differ from
+  // displayW/displayH if DPR scaling occurs). Set scale so display stays displayW × displayH.
   active.set?.({
-    scaleX: displayW / (active.width ?? displayW),
-    scaleY: displayH / (active.height ?? displayH),
+    scaleX: displayW / pngW,
+    scaleY: displayH / pngH,
   })
   active.set?.('dirty', true)
   active.setCoords?.()

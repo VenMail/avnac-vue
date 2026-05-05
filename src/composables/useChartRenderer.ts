@@ -95,11 +95,13 @@ function buildChartjsConfig(data: AvnacChartData, w: number, _h: number): Chartj
   return { type: chartjsType, data: { labels, datasets }, options: opts }
 }
 
+export type ChartRenderResult = { url: string; pngW: number; pngH: number }
+
 export async function renderChartToDataUrl(
   data: AvnacChartData,
   w: number,
   h: number,
-): Promise<string> {
+): Promise<ChartRenderResult> {
   const { Chart, registerables } = await import('chart.js')
   Chart.register(...registerables)
 
@@ -113,8 +115,13 @@ export async function renderChartToDataUrl(
   // Let chart render (chart.js renders synchronously after register, but give it a tick)
   await new Promise<void>(resolve => setTimeout(resolve, 60))
 
+  // Read canvas dimensions AFTER Chart.js processes them (it may apply devicePixelRatio).
+  // With devicePixelRatio:1 in config these should equal w/h, but we use the actual values
+  // so the Fabric image scale is always set correctly regardless of environment.
+  const pngW = canvas.width
+  const pngH = canvas.height
   const url = canvas.toDataURL('image/png')
   chart.destroy()
 
-  return url
+  return { url, pngW, pngH }
 }

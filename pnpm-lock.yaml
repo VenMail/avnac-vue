@@ -11,24 +11,15 @@ importers:
       chart.js:
         specifier: ^4.5.1
         version: 4.5.1
-      fabric:
-        specifier: ^6.6.1
-        version: 6.9.1
       jszip:
         specifier: ^3.10.1
         version: 3.10.1
-      pinia:
-        specifier: ^2.0.0
-        version: 2.3.1(typescript@5.8.3)(vue@3.5.33(typescript@5.8.3))
       pptxgenjs:
         specifier: ^3.12.0
         version: 3.12.0
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
-      vue:
-        specifier: ^3.5.0
-        version: 3.5.33(typescript@5.8.3)
       vue-draggable-next:
         specifier: ^2.2.1
         version: 2.3.0(sortablejs@1.15.7)(vue@3.5.33(typescript@5.8.3))
@@ -54,9 +45,15 @@ importers:
       '@vue/test-utils':
         specifier: ^2.4.6
         version: 2.4.9(@vue/compiler-dom@3.5.33)(@vue/server-renderer@3.5.33(vue@3.5.33(typescript@5.8.3)))(vue@3.5.33(typescript@5.8.3))
+      fabric:
+        specifier: ^6.6.1
+        version: 6.9.1
       jsdom:
         specifier: ^25.0.1
         version: 25.0.1(canvas@2.11.2)
+      pinia:
+        specifier: ^2.0.0
+        version: 2.3.1(typescript@5.8.3)(vue@3.5.33(typescript@5.8.3))
       tailwindcss:
         specifier: ^4.1.8
         version: 4.2.4
@@ -69,6 +66,9 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/node@22.19.17)(jiti@2.6.1)(jsdom@25.0.1(canvas@2.11.2))(lightningcss@1.32.0)
+      vue:
+        specifier: ^3.5.0
+        version: 3.5.33(typescript@5.8.3)
       vue-tsc:
         specifier: ^2.2.10
         version: 2.2.12(typescript@5.8.3)

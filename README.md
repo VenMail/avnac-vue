@@ -1,7 +1,7 @@
 # Avnac Vue
 
 [![Deploy Demo](https://github.com/VenMail/avnac-vue/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/VenMail/avnac-vue/actions/workflows/deploy-pages.yml)
-[![npm](https://img.shields.io/npm/v/avnac-vue)](https://www.npmjs.com/package/avnac-vue)
+[![npm](https://img.shields.io/npm/v/@Venmail/avnac-vue)](https://www.npmjs.com/package/@Venmail/avnac-vue)
 
 Avnac Vue is a **Vue 3 + Fabric.js** clone and adaptation of the original React [Avnac](https://github.com/akinloluwami/avnac) editor.
 

@@ -24,11 +24,17 @@ function buildChartjsConfig(data: AvnacChartData, w: number, _h: number): Chartj
   const mainFont = { size: fontBase }
 
   const { type, labels, series, options } = data
-  const colors = options.colorScheme.length > 0
+  const isPie = type === 'pie' || type === 'doughnut'
+  // For pie/doughnut, need one color per segment (label); for others, one per series.
+  const numColors = isPie ? labels.length : series.length
+  const baseColors = options.colorScheme.length > 0
     ? options.colorScheme
     : series.map((s, i) => s.color ?? `hsl(${(i * 60) % 360}, 65%, 50%)`)
+  // Cycle the color array if it has fewer entries than needed.
+  const colors = baseColors.length >= numColors
+    ? baseColors
+    : Array.from({ length: numColors }, (_, i) => baseColors[i % baseColors.length])
 
-  const isPie = type === 'pie' || type === 'doughnut'
   const isArea = type === 'area'
 
   const datasets = series.map((s, i) => ({
@@ -52,6 +58,11 @@ function buildChartjsConfig(data: AvnacChartData, w: number, _h: number): Chartj
   const opts: Record<string, unknown> = {
     responsive: false,
     animation: false,
+    // Force DPR=1 so the canvas output is exactly w×h pixels.
+    // Without this Chart.js multiplies canvas dimensions by devicePixelRatio,
+    // causing the PNG to be larger than requested and the Fabric image to grow
+    // on each re-render.
+    devicePixelRatio: 1,
     plugins: {
       legend: {
         display: options.showLegend,

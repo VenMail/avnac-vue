@@ -66,7 +66,7 @@ export function defaultChartData(type: ChartType): AvnacChartData {
     options: {
       showLegend: true,
       showDataLabels: false,
-      colorScheme: DEFAULT_COLORS.slice(0, series.length),
+      colorScheme: DEFAULT_COLORS.slice(0, isPie ? labels.length : series.length),
     },
   }
 }

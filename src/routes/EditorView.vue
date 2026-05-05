@@ -653,20 +653,25 @@ watch(() => chartsStore.renderRev, async () => {
   const active = findChartObject(chartsStore.editingChartId)
   if (!active?.avnacChart) return
   active.avnacChart = cloneAvnacPlain(data)
-  // Use intrinsic PNG dimensions (not display size = width * scaleX).
-  // setSrc replaces the image element and updates width/height to the new PNG's
-  // natural dimensions; if we render at width*scaleX, the new intrinsic size
-  // becomes the old display size, which then gets multiplied by scaleX again → doubled.
-  const w = Math.max(200, Math.round(active.width ?? 400))
-  const h = Math.max(150, Math.round(active.height ?? 300))
+  // Render at the current DISPLAY size (intrinsic × scale), not the raw intrinsic size.
+  // Chart.js forces devicePixelRatio:1 in useChartRenderer, so the PNG is exactly w×h.
+  // After setSrc, Fabric updates width/height to the new PNG's natural size; we then
+  // restore scaleX/scaleY so the on-canvas display size stays unchanged.
+  const displayW = Math.max(200, Math.round((active.width ?? 400) * (active.scaleX ?? 1)))
+  const displayH = Math.max(150, Math.round((active.height ?? 300) * (active.scaleY ?? 1)))
   const { renderChartToDataUrl } = await import('#/composables/useChartRenderer')
-  const url = await renderChartToDataUrl(data, w, h)
+  const url = await renderChartToDataUrl(data, displayW, displayH)
   try {
     await active.setSrc?.(url, { crossOrigin: 'anonymous' })
   } catch (err) {
     console.warn('[avnac] chart re-render failed', err)
     active.set?.('src', url)
   }
+  // Restore scale so display size = displayW × displayH regardless of new intrinsic size.
+  active.set?.({
+    scaleX: displayW / (active.width ?? displayW),
+    scaleY: displayH / (active.height ?? displayH),
+  })
   active.set?.('dirty', true)
   active.setCoords?.()
   canvas.requestRenderAll()

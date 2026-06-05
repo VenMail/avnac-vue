@@ -6,6 +6,7 @@ import {
   Path,
   Point,
   Polygon,
+  classRegistry,
   type FabricObject,
   type XY,
 } from 'fabric'
@@ -35,6 +36,12 @@ class ArrowNoop extends LayoutStrategy {
     return false
   }
 }
+
+export function registerAvnacStrokeArrowLayout() {
+  classRegistry.setClass(ArrowNoop)
+}
+
+registerAvnacStrokeArrowLayout()
 
 const arrowNoopLayout = new ArrowNoop()
 

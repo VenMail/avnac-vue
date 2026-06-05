@@ -6,6 +6,7 @@ import { migrateLegacyImageBlurFilters, installAvnacObjectCanvasBlur } from './a
 import { normalizeCanvasImagesForExport } from './avnac-image-proxy'
 import { refreshAllVectorBoardInstances } from './avnac-vector-board-fabric'
 import { loadVectorBoardDocs } from './avnac-vector-boards-storage'
+import { registerAvnacStrokeArrowLayout } from './avnac-stroke-arrow'
 
 const OBJECT_SERIAL_KEYS = [
   'avnacShape',
@@ -71,6 +72,7 @@ export async function renderAvnacDocumentPreviewDataUrl(
         mod.FabricObject.customProperties.push(k)
       }
     }
+    registerAvnacStrokeArrowLayout()
     installAvnacObjectCanvasBlur(mod)
 
     const aw = doc.artboard.width

@@ -6,8 +6,8 @@
   >
     <div class="avnac-sidebar-group">
       <ShapesPopover @pick="emit('insertShape', $event)" />
-      <button class="avnac-sidebar-btn avnac-sidebar-btn--text" title="Text box" @click="emit('insertText')">T</button>
-      <button class="avnac-sidebar-btn" title="Add image" @click="emit('insertImage')">
+      <button class="avnac-sidebar-btn avnac-sidebar-btn--text" title="Text box" aria-label="Text box" @click="emit('insertText')">T</button>
+      <button class="avnac-sidebar-btn" title="Add image" aria-label="Add image" @click="emit('insertImage')">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
           <rect x="3" y="3" width="18" height="18" rx="2"/>
           <circle cx="8.5" cy="8.5" r="1.5"/>
@@ -18,6 +18,7 @@
         <button
           class="avnac-sidebar-btn"
           title="Line tool"
+          aria-label="Line tool"
           :aria-expanded="lineOpen"
           @click="toggleLineMenu"
         >
@@ -40,7 +41,7 @@
           </button>
         </div>
       </div>
-      <button class="avnac-sidebar-btn" title="Pen" @click="emit('startPen')">
+      <button class="avnac-sidebar-btn" title="Pen" aria-label="Pen" @click="emit('startPen')">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
           <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
         </svg>
@@ -56,6 +57,8 @@
         class="avnac-sidebar-btn"
         :class="[{ active: activePanel === item.id }, item.id === 'ai' ? 'avnac-ai-btn' : '']"
         :title="item.label"
+        :aria-label="item.label"
+        :aria-pressed="activePanel === item.id"
         @click="emit('selectPanel', item.id as any)"
       >
         <span v-html="item.icon" />
@@ -69,6 +72,8 @@
         class="avnac-sidebar-btn"
         :class="{ active: activePanel === item.id }"
         :title="item.label"
+        :aria-label="item.label"
+        :aria-pressed="activePanel === item.id"
         @click="emit('selectPanel', item.id as any)"
       >
         <span v-html="item.icon" />

@@ -213,6 +213,32 @@ function resolveApiUrl(): string {
   return `${base}/ai/generate-slides`
 }
 
+function apiErrorMessage(status: number, json: unknown): string {
+  const data = json && typeof json === 'object' ? json as Record<string, unknown> : {}
+  const apiMessage =
+    typeof data.message === 'string' ? data.message
+    : typeof (data.error as { message?: unknown } | undefined)?.message === 'string' ? (data.error as { message: string }).message
+    : null
+
+  if (status === 401 || status === 419) {
+    return 'Your Venmail session could not be verified. Refresh the workspace and try again.'
+  }
+
+  if (status === 403) {
+    return apiMessage ?? 'You do not have access to use AI slide generation from this workspace.'
+  }
+
+  if (status === 429) {
+    return apiMessage ?? 'AI slide generation is busy. Please try again in a minute.'
+  }
+
+  if (status >= 500) {
+    return apiMessage ?? 'AI slide generation is temporarily unavailable. Please try again shortly.'
+  }
+
+  return apiMessage ?? `Request failed (${status})`
+}
+
 interface StoryBlock {
   type: string
   content: Record<string, unknown>
@@ -409,8 +435,7 @@ async function generate() {
     }
 
     if (!resp.ok) {
-      const errMsg = ((json as any)?.error?.message as string | undefined) ?? `Request failed (${resp.status})`
-      error.value = errMsg
+      error.value = apiErrorMessage(resp.status, json)
       return
     }
 

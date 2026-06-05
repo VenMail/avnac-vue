@@ -98,7 +98,7 @@
 
       <!-- Bottom bar slot -->
       <template #bottom-bar>
-        <div class="flex items-center justify-center gap-4 p-3">
+        <div class="avnac-editor-bottom-bar-content flex items-center justify-center gap-4 p-3">
           <button class="avnac-icon-btn" title="Add image" @click="onAddImage">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
@@ -849,5 +849,26 @@ async function onInsertDiagram(data: AvnacDiagramData) {
   border: 1px solid var(--border-default, #e0e0e0);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.avnac-editor-bottom-bar-content {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
+}
+.avnac-editor-bottom-bar-content::-webkit-scrollbar {
+  display: none;
+}
+.avnac-editor-bottom-bar-content > * {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .avnac-editor-bottom-bar-content {
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 8px 6px;
+  }
 }
 </style>

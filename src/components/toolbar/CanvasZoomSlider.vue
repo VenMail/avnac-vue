@@ -63,4 +63,21 @@ const emit = defineEmits<{ change: [v: number]; fitRequest: [] }>()
   min-width: 3rem;
   text-align: center;
 }
+
+@media (max-width: 640px) {
+  .avnac-zoom-bar {
+    gap: 4px;
+    padding: 4px 6px;
+  }
+
+  .avnac-zoom-bar :deep(.w-24) {
+    width: 4.5rem;
+  }
+
+  .avnac-zoom-pct-btn,
+  .avnac-zoom-pct-text {
+    min-width: 2.5rem;
+    padding-inline: 4px;
+  }
+}
 </style>

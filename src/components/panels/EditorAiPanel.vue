@@ -177,7 +177,7 @@ const emit = defineEmits<{
 }>()
 
 const panelStyle = computed(() => ({
-  left: props.panelLeft ?? '4rem',
+  left: `min(${props.panelLeft ?? '4rem'}, calc(100vw - min(calc(100vw - 1.5rem), 360px) - 0.75rem))`,
   top: props.panelTop ?? '4rem',
 }))
 
@@ -209,7 +209,7 @@ function getToken(): string | null {
 
 function resolveApiUrl(): string {
   if (props.apiUrl) return props.apiUrl
-  const base = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8000/api/v1'
+  const base = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8000/api/v1').replace(/\/$/, '')
   return `${base}/ai/generate-slides`
 }
 
